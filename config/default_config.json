@@ -1,0 +1,34 @@
+{
+  "hotkey": {
+    "record": "ctrl+shift+space",
+    "command_mode": "ctrl+shift+c"
+  },
+  "transcription": {
+    "model": "mlx-community/whisper-small-mlx",
+    "language": "en",
+    "backend": "mlx-whisper"
+  },
+  "processing": {
+    "remove_fillers": true,
+    "auto_punctuate": true,
+    "handle_self_corrections": true,
+    "llm_cleanup": true,
+    "ollama_model": "llama3.2:3b",
+    "ollama_url": "http://localhost:11434"
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "channels": 1,
+    "silence_threshold": 500,
+    "silence_duration": 1.5,
+    "max_duration": 60
+  },
+  "ui": {
+    "overlay_position": "bottom-center",
+    "overlay_size": "small",
+    "show_waveform": false
+  },
+  "custom_dictionary_path": "~/.config/flowvoice/custom_dictionary.json",
+  "clipboard_restore": true,
+  "log_level": "info"
+}

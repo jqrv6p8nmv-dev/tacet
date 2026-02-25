@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# py2app build artifacts
+dist/
+build/
+
+# MLX / model cache (large)
+*.mlmodelc/
+
+# Local config overrides (user keeps their own)
+# (don't ignore ~/.config/flowvoice — that's outside the repo)
+
+# Logs
+*.log
+logs/
