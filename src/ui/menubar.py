@@ -2,11 +2,10 @@
 macOS menubar application using rumps.
 
 Provides the system tray icon, menu items, and wires together all
-FlowVoice components into a single cohesive app.
+WhisperMe components into a single cohesive app.
 """
 import json
 import logging
-import os
 import threading
 from pathlib import Path
 from typing import Optional
@@ -20,7 +19,7 @@ ICON_IDLE = "🎙"
 ICON_RECORDING = "🔴"
 ICON_PROCESSING = "⏳"
 
-CONFIG_DIR = Path("~/.config/flowvoice").expanduser()
+CONFIG_DIR = Path("~/.config/whisperme").expanduser()
 CONFIG_PATH = CONFIG_DIR / "config.json"
 DEFAULT_CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "default_config.json"
 
@@ -47,26 +46,26 @@ def _save_config(config: dict) -> None:
         json.dump(config, f, indent=2)
 
 
-class FlowVoiceApp(rumps.App):
+class WhisperMeApp(rumps.App):
     """
-    Main FlowVoice menubar application.
+    Main WhisperMe menubar application.
 
     Integrates audio capture, transcription, post-processing, and text
-    insertion into a single toggle-based workflow triggered by hotkey or
-    menubar click.
+    insertion into a workflow triggered by the Fn key (hold-to-record)
+    or a configurable hotkey combo.
     """
 
     def __init__(self):
         super().__init__(
-            name="FlowVoice",
+            name="WhisperMe",
             title=ICON_IDLE,
-            quit_button="Quit FlowVoice",
+            quit_button="Quit WhisperMe",
         )
         self.config = _load_config()
         self._recording = False
         self._processing = False
 
-        # Lazy-initialized components (initialized in setup())
+        # Components wired in via setup()
         self._capture = None
         self._whisper = None
         self._pipeline = None
@@ -86,11 +85,11 @@ class FlowVoiceApp(rumps.App):
                 callback=self._toggle_llm_cleanup,
             ),
             rumps.separator,
-            rumps.MenuItem("About FlowVoice", callback=self._show_about),
+            rumps.MenuItem("About WhisperMe", callback=self._show_about),
         ]
 
     # ------------------------------------------------------------------
-    # Public API called from main.py after init
+    # Public API called from main.py
     # ------------------------------------------------------------------
 
     def setup(
@@ -109,21 +108,18 @@ class FlowVoiceApp(rumps.App):
         self._hotkey_listener = hotkey_listener
 
     # ------------------------------------------------------------------
-    # Recording workflow
+    # Recording workflow — public entry points
     # ------------------------------------------------------------------
 
     def toggle_recording(self) -> None:
-        """Public method — called by hotkey listener to toggle recording."""
+        """Toggle recording on/off (used by combo hotkeys)."""
         if self._recording:
-            self._stop_recording()
+            self.stop_recording()
         else:
-            self._start_recording()
+            self.start_recording()
 
-    def _toggle_recording(self, sender) -> None:
-        """Menu item callback."""
-        self.toggle_recording()
-
-    def _start_recording(self) -> None:
+    def start_recording(self) -> None:
+        """Begin recording (called on Fn press or menu click)."""
         if self._processing:
             logger.debug("Cannot start recording while processing")
             return
@@ -142,7 +138,8 @@ class FlowVoiceApp(rumps.App):
             self._capture.on_auto_stop = self._on_auto_stop
             self._capture.start()
 
-    def _stop_recording(self) -> None:
+    def stop_recording(self) -> None:
+        """Stop recording and kick off processing (called on Fn release or menu click)."""
         if not self._recording:
             return
 
@@ -154,14 +151,21 @@ class FlowVoiceApp(rumps.App):
         if self._overlay:
             self._overlay.show_processing()
 
-        # Process audio on a background thread to keep the UI responsive
         t = threading.Thread(target=self._process_audio, daemon=True)
         t.start()
+
+    # ------------------------------------------------------------------
+    # Internal callbacks
+    # ------------------------------------------------------------------
+
+    def _toggle_recording(self, sender) -> None:
+        """Menu item callback."""
+        self.toggle_recording()
 
     def _on_auto_stop(self) -> None:
         """Called by AudioCapture when silence is detected."""
         logger.debug("Auto-stop triggered")
-        self._stop_recording()
+        self.stop_recording()
 
     def _process_audio(self) -> None:
         """Background thread: stop capture → transcribe → clean → insert."""
@@ -172,7 +176,6 @@ class FlowVoiceApp(rumps.App):
                 self._finish(success=False)
                 return
 
-            # Transcribe
             text = self._whisper.transcribe(audio) if self._whisper else ""
             if not text:
                 logger.warning("Transcription returned empty result")
@@ -181,11 +184,9 @@ class FlowVoiceApp(rumps.App):
 
             logger.info(f"Transcribed: {text!r}")
 
-            # Post-process
             if self._pipeline:
                 text = self._pipeline.process(text)
 
-            # Insert
             from ..insertion.paste import insert_text
             restore = self.config.get("clipboard_restore", True)
             success = insert_text(text, restore_clipboard=restore)
@@ -221,10 +222,10 @@ class FlowVoiceApp(rumps.App):
 
     def _show_about(self, _sender) -> None:
         rumps.alert(
-            title="FlowVoice",
+            title="WhisperMe",
             message=(
                 "Free, local-first voice dictation for macOS.\n\n"
-                "Press Ctrl+Shift+Space to toggle recording.\n\n"
+                "Hold the Fn key to record. Release to transcribe.\n\n"
                 "All processing happens on-device — no cloud, no subscription."
             ),
         )

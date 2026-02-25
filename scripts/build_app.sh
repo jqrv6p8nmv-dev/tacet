@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build FlowVoice as a standalone macOS .app bundle using py2app.
+# Build WhisperMe as a standalone macOS .app bundle using py2app.
 # Usage: bash scripts/build_app.sh
 
 set -euo pipefail
@@ -37,14 +37,14 @@ rm -rf "$DIST_DIR" "$BUILD_DIR"
 
 # ── Build ────────────────────────────────────────────────────────────────────
 
-info "Building FlowVoice.app (this may take a few minutes)..."
+info "Building WhisperMe.app (this may take a few minutes)..."
 python3 setup.py py2app
 
-if [[ -d "$DIST_DIR/FlowVoice.app" ]]; then
-    success "FlowVoice.app built at: $DIST_DIR/FlowVoice.app"
+if [[ -d "$DIST_DIR/WhisperMe.app" ]]; then
+    success "WhisperMe.app built at: $DIST_DIR/WhisperMe.app"
     echo ""
-    echo "  To run: open $DIST_DIR/FlowVoice.app"
-    echo "  To install: cp -r $DIST_DIR/FlowVoice.app /Applications/"
+    echo "  To run: open $DIST_DIR/WhisperMe.app"
+    echo "  To install: cp -r $DIST_DIR/WhisperMe.app /Applications/"
 else
-    error "Build failed — FlowVoice.app not found in $DIST_DIR"
+    error "Build failed — WhisperMe.app not found in $DIST_DIR"
 fi

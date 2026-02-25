@@ -1,12 +1,12 @@
-# FlowVoice
+# WhisperMe
 
-Free, local-first voice dictation for macOS. Press a hotkey, speak naturally, get clean formatted text inserted into any app — no cloud, no subscription.
+Free, local-first voice dictation for macOS. Hold the Fn key, speak naturally, get clean formatted text inserted into any app — no cloud, no subscription.
 
 Inspired by Wispr Flow. All processing happens on-device using Apple Silicon-optimized models.
 
 ## Features (MVP)
 
-- **Global hotkey** (`Ctrl+Shift+Space`) to start/stop recording
+- **Fn key hold-to-record** — press to start, release to stop (just like a walkie-talkie)
 - **Local Whisper transcription** via `mlx-whisper` (Apple Silicon optimized)
 - **AI text cleanup** via Ollama (removes fillers, fixes punctuation, handles self-corrections)
 - **Text insertion** into any focused app via clipboard paste
@@ -30,8 +30,8 @@ ollama pull llama3.2:3b
 
 ```bash
 # Clone and set up
-git clone https://github.com/yourusername/flowvoice.git
-cd flowvoice
+git clone https://github.com/yourusername/whisperme.git
+cd whisperme
 bash scripts/install.sh
 ```
 
@@ -44,18 +44,22 @@ python -m src.main
 
 ## Usage
 
-1. Launch FlowVoice — a microphone icon appears in your menubar
-2. Click the icon or press `Ctrl+Shift+Space` to start recording
+1. Launch WhisperMe — a microphone icon appears in your menubar
+2. **Hold the Fn key** to start recording
 3. Speak naturally
-4. Press `Ctrl+Shift+Space` again (or pause for 1.5s) to stop
-5. Text is transcribed, cleaned up, and pasted into your focused app
+4. **Release the Fn key** to stop — text is transcribed, cleaned up, and pasted into your focused app
+5. You can also click "Start Recording" in the menubar menu
+
+> **Note on the Fn key:** On macOS Sonoma+, the Fn key may open the emoji picker by default.
+> To disable that: **System Settings → Keyboard → Press Fn/Globe key to → Do Nothing**.
+> WhisperMe will then intercept the Fn key directly.
 
 ## Configuration
 
-Config lives at `~/.config/flowvoice/config.json`. See `config/default_config.json` for all options.
+Config lives at `~/.config/whisperme/config.json`. See `config/default_config.json` for all options.
 
 Key settings:
-- `hotkey.record` — change the trigger hotkey
+- `hotkey.record` — change the trigger key (`"fn"` for Fn hold-to-record, or a combo like `"ctrl+shift+space"` for toggle mode)
 - `transcription.model` — choose Whisper model size (tiny → large)
 - `processing.llm_cleanup` — toggle AI cleanup on/off
 - `processing.ollama_model` — choose which Ollama model to use
@@ -64,7 +68,7 @@ Key settings:
 
 On first launch, grant these permissions in System Settings → Privacy & Security:
 - **Microphone** — required for audio capture
-- **Accessibility** — required for global hotkey and text insertion
+- **Accessibility** — required for Fn key detection and text insertion
 
 ## Tech Stack
 

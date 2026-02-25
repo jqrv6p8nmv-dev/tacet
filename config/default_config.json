@@ -1,6 +1,6 @@
 {
   "hotkey": {
-    "record": "ctrl+shift+space",
+    "record": "fn",
     "command_mode": "ctrl+shift+c"
   },
   "transcription": {
@@ -28,7 +28,7 @@
     "overlay_size": "small",
     "show_waveform": false
   },
-  "custom_dictionary_path": "~/.config/flowvoice/custom_dictionary.json",
+  "custom_dictionary_path": "~/.config/whisperme/custom_dictionary.json",
   "clipboard_restore": true,
   "log_level": "info"
 }

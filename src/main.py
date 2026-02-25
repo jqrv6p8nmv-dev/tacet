@@ -1,11 +1,10 @@
 """
-FlowVoice — Entry point.
+WhisperMe — Entry point.
 
 Sets up logging, loads config, instantiates all components, and starts
 the rumps menubar application.
 """
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -28,7 +27,7 @@ def main() -> None:
 
     _setup_logging(cfg_get(config, "log_level", default="info"))
     logger = logging.getLogger(__name__)
-    logger.info("FlowVoice starting…")
+    logger.info("WhisperMe starting…")
 
     # ------------------------------------------------------------------ #
     # 2. Instantiate components
@@ -57,7 +56,9 @@ def main() -> None:
     from .processing.dictionary import CustomDictionary
     from .processing.pipeline import ProcessingPipeline
     proc_cfg = config.get("processing", {})
-    dict_path_str = config.get("custom_dictionary_path", "~/.config/flowvoice/custom_dictionary.json")
+    dict_path_str = config.get(
+        "custom_dictionary_path", "~/.config/whisperme/custom_dictionary.json"
+    )
     dictionary = CustomDictionary(path=Path(dict_path_str).expanduser())
     pipeline = ProcessingPipeline(
         remove_fillers=proc_cfg.get("remove_fillers", True),
@@ -74,16 +75,18 @@ def main() -> None:
     overlay = StatusOverlay(position=ui_cfg.get("overlay_position", "bottom-center"))
 
     # Menubar app
-    from .ui.menubar import FlowVoiceApp
-    app = FlowVoiceApp()
+    from .ui.menubar import WhisperMeApp
+    app = WhisperMeApp()
     app.config = config
 
-    # Hotkey listener
-    from .hotkey.listener import HotkeyListener
-    hotkey_str = cfg_get(config, "hotkey", "record", default="ctrl+shift+space")
-    hotkey_listener = HotkeyListener(
+    # Hotkey listener — Fn key (hold-to-record) or combo (toggle)
+    from .hotkey.listener import create_listener
+    hotkey_str = cfg_get(config, "hotkey", "record", default="fn")
+    listener = create_listener(
         hotkey=hotkey_str,
-        on_activate=app.toggle_recording,
+        on_activate=app.toggle_recording,   # used by combo/toggle mode
+        on_start=app.start_recording,        # used by Fn hold mode
+        on_stop=app.stop_recording,          # used by Fn hold mode
     )
 
     # Wire everything together
@@ -92,11 +95,11 @@ def main() -> None:
         whisper_engine=whisper_engine,
         pipeline=pipeline,
         overlay=overlay,
-        hotkey_listener=hotkey_listener,
+        hotkey_listener=listener,
     )
 
     # ------------------------------------------------------------------ #
-    # 3. Check permissions (non-blocking warnings)
+    # 3. Check permissions (non-blocking warning)
     # ------------------------------------------------------------------ #
     from .insertion.paste import check_accessibility_permission
     if not check_accessibility_permission():
@@ -104,28 +107,27 @@ def main() -> None:
         rumps.alert(
             title="Accessibility Permission Required",
             message=(
-                "FlowVoice needs Accessibility access to insert text.\n\n"
+                "WhisperMe needs Accessibility access to insert text.\n\n"
                 "Go to: System Settings → Privacy & Security → Accessibility\n"
-                "and enable FlowVoice (or Terminal if running from command line)."
+                "and enable WhisperMe (or Terminal if running from the command line)."
             ),
         )
 
     # ------------------------------------------------------------------ #
-    # 4. Start hotkey listener and run the app
+    # 4. Start listener and run the app
     # ------------------------------------------------------------------ #
-    hotkey_listener.start()
-    logger.info(f"Hotkey registered: {hotkey_listener.hotkey_str}")
-    logger.info("FlowVoice ready. Press Ctrl+Shift+Space to start recording.")
+    listener.start()
+    logger.info(f"Hotkey registered: {listener.hotkey_str}")
+    logger.info("WhisperMe ready. Hold Fn to record.")
 
     try:
         app.run()
     finally:
-        hotkey_listener.stop()
-        logger.info("FlowVoice exited.")
+        listener.stop()
+        logger.info("WhisperMe exited.")
 
 
 if __name__ == "__main__":
-    # Allow running as `python -m src.main` or `python src/main.py`
     if __package__ is None:
         sys.path.insert(0, str(Path(__file__).parent.parent))
         from src.main import main

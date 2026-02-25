@@ -1,8 +1,8 @@
 """
-Configuration management for FlowVoice.
+Configuration management for WhisperMe.
 
 Merges default config with user overrides stored at
-~/.config/flowvoice/config.json.
+~/.config/whisperme/config.json.
 """
 import json
 import logging
@@ -11,7 +11,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-CONFIG_DIR = Path("~/.config/flowvoice").expanduser()
+CONFIG_DIR = Path("~/.config/whisperme").expanduser()
 USER_CONFIG_PATH = CONFIG_DIR / "config.json"
 DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config" / "default_config.json"
 

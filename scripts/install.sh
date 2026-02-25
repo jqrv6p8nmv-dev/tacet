@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FlowVoice installation script for macOS
+# WhisperMe installation script for macOS
 # Usage: bash scripts/install.sh
 
 set -euo pipefail
@@ -8,7 +8,7 @@ PYTHON_MIN_VERSION="3.11"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "=========================================="
-echo "  FlowVoice Installer"
+echo "  WhisperMe Installer"
 echo "=========================================="
 echo ""
 
@@ -21,7 +21,7 @@ error()   { echo "  [ERROR] $*" >&2; exit 1; }
 
 check_macos() {
     if [[ "$(uname)" != "Darwin" ]]; then
-        error "FlowVoice requires macOS. Detected: $(uname)"
+        error "WhisperMe requires macOS. Detected: $(uname)"
     fi
     OS_VER=$(sw_vers -productVersion)
     info "macOS version: $OS_VER"
@@ -87,7 +87,7 @@ install_python_deps() {
 }
 
 setup_config() {
-    CONFIG_DIR="$HOME/.config/flowvoice"
+    CONFIG_DIR="$HOME/.config/whisperme"
     CONFIG_FILE="$CONFIG_DIR/config.json"
     mkdir -p "$CONFIG_DIR"
 
@@ -107,11 +107,11 @@ print_permissions_reminder() {
     echo ""
     echo "  1. Microphone:"
     echo "     System Settings → Privacy & Security → Microphone"
-    echo "     → Enable Terminal (or FlowVoice.app)"
+    echo "     → Enable Terminal (or WhisperMe.app)"
     echo ""
     echo "  2. Accessibility:"
     echo "     System Settings → Privacy & Security → Accessibility"
-    echo "     → Enable Terminal (or FlowVoice.app)"
+    echo "     → Enable Terminal (or WhisperMe.app)"
     echo ""
 }
 
@@ -120,11 +120,11 @@ print_run_instructions() {
     echo "  Installation complete!"
     echo "=========================================="
     echo ""
-    echo "  Run FlowVoice:"
+    echo "  Run WhisperMe:"
     echo "    cd $REPO_DIR"
     echo "    $PYTHON_CMD -m src.main"
     echo ""
-    echo "  Hotkey: Ctrl+Shift+Space (toggle recording)"
+    echo "  Hotkey: Hold Fn key to record, release to transcribe"
     echo ""
 }
 

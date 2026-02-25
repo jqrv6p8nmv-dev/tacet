@@ -1,5 +1,5 @@
 """
-Setup script for FlowVoice.
+Setup script for WhisperMe.
 Also used by py2app to create a standalone .app bundle.
 """
 from setuptools import setup, find_packages
@@ -10,23 +10,23 @@ OPTIONS = {
     "argv_emulation": False,
     "plist": {
         "LSUIElement": True,  # Run as background app (no Dock icon)
-        "CFBundleName": "FlowVoice",
-        "CFBundleDisplayName": "FlowVoice",
-        "CFBundleIdentifier": "com.flowvoice.app",
+        "CFBundleName": "WhisperMe",
+        "CFBundleDisplayName": "WhisperMe",
+        "CFBundleIdentifier": "com.whisperme.app",
         "CFBundleVersion": "0.1.0",
         "CFBundleShortVersionString": "0.1.0",
-        "NSMicrophoneUsageDescription": "FlowVoice needs microphone access to capture your speech.",
-        "NSAccessibilityUsageDescription": "FlowVoice needs Accessibility access to insert text and listen for hotkeys.",
+        "NSMicrophoneUsageDescription": "WhisperMe needs microphone access to capture your speech.",
+        "NSAccessibilityUsageDescription": "WhisperMe needs Accessibility access to insert text and listen for hotkeys.",
     },
     "packages": ["rumps", "sounddevice", "numpy", "pynput", "pyperclip", "requests"],
 }
 
 setup(
     app=APP,
-    name="FlowVoice",
+    name="WhisperMe",
     version="0.1.0",
     description="Local-first voice dictation for macOS",
-    author="FlowVoice Contributors",
+    author="WhisperMe contributors",
     license="MIT",
     packages=find_packages(),
     data_files=DATA_FILES,
