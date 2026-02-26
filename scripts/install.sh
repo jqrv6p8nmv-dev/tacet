@@ -79,11 +79,14 @@ check_ollama() {
 }
 
 install_python_deps() {
-    info "Installing Python dependencies..."
+    info "Creating virtual environment at $REPO_DIR/.venv ..."
     cd "$REPO_DIR"
-    $PYTHON_CMD -m pip install --upgrade pip --quiet
-    $PYTHON_CMD -m pip install -r requirements.txt --quiet
-    success "Python packages installed"
+    $PYTHON_CMD -m venv .venv
+    VENV_PYTHON="$REPO_DIR/.venv/bin/python"
+    VENV_PIP="$REPO_DIR/.venv/bin/pip"
+    "$VENV_PIP" install --upgrade pip --quiet
+    "$VENV_PIP" install -r requirements.txt --quiet
+    success "Python packages installed into .venv"
 }
 
 setup_config() {
@@ -122,7 +125,8 @@ print_run_instructions() {
     echo ""
     echo "  Run WhisperMe:"
     echo "    cd $REPO_DIR"
-    echo "    $PYTHON_CMD -m src.main"
+    echo "    source .venv/bin/activate"
+    echo "    python -m src.main"
     echo ""
     echo "  Hotkey: Hold Fn key to record, release to transcribe"
     echo ""
