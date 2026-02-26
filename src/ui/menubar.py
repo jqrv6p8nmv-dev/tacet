@@ -197,8 +197,15 @@ class WhisperMeApp(rumps.App):
             self._finish(success=False)
 
     def _finish(self, success: bool) -> None:
+        """Called from background thread — dispatch AppKit work to main thread."""
         self._processing = False
-        self.title = ICON_IDLE
+        try:
+            import AppKit
+            def _on_main():
+                self.title = ICON_IDLE
+            AppKit.NSOperationQueue.mainQueue().addOperationWithBlock_(_on_main)
+        except ImportError:
+            self.title = ICON_IDLE
 
         if self._overlay:
             if success:

@@ -93,11 +93,8 @@ class StatusOverlay:
             False,
         )
         self._window.setLevel_(AppKit.NSFloatingWindowLevel + 1)
-        self._window.setAlphaValue_(0.88)
-        self._window.setBackgroundColor_(
-            AppKit.NSColor.colorWithCalibratedRed_green_blue_alpha_(0.1, 0.1, 0.1, 1.0)
-        )
-        self._window.setCornerRadius_(12)  # type: ignore[attr-defined]
+        self._window.setOpaque_(False)
+        self._window.setBackgroundColor_(AppKit.NSColor.clearColor())
         self._window.setHasShadow_(True)
         self._window.setCollectionBehavior_(
             AppKit.NSWindowCollectionBehaviorCanJoinAllSpaces
@@ -118,7 +115,17 @@ class StatusOverlay:
         font = AppKit.NSFont.systemFontOfSize_weight_(14, AppKit.NSFontWeightMedium)
         self._label.setFont_(font)
 
-        self._window.contentView().addSubview_(self._label)
+        content_view = self._window.contentView()
+        content_view.setWantsLayer_(True)
+        layer = content_view.layer()
+        layer.setCornerRadius_(12.0)
+        layer.setMasksToBounds_(True)
+        layer.setBackgroundColor_(
+            AppKit.NSColor.colorWithCalibratedRed_green_blue_alpha_(
+                0.1, 0.1, 0.1, 0.88
+            ).CGColor()
+        )
+        content_view.addSubview_(self._label)
 
     def set_state(self, state: OverlayState) -> None:
         """Update the overlay to show the given state."""
