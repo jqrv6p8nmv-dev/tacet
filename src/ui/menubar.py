@@ -120,6 +120,14 @@ class WhisperMeApp(rumps.App):
 
     def start_recording(self) -> None:
         """Begin recording (called on Fn press or menu click)."""
+        try:
+            import AppKit
+            if not AppKit.NSThread.isMainThread():
+                AppKit.NSOperationQueue.mainQueue().addOperationWithBlock_(self.start_recording)
+                return
+        except ImportError:
+            pass
+
         if self._processing:
             logger.debug("Cannot start recording while processing")
             return
@@ -140,6 +148,14 @@ class WhisperMeApp(rumps.App):
 
     def stop_recording(self) -> None:
         """Stop recording and kick off processing (called on Fn release or menu click)."""
+        try:
+            import AppKit
+            if not AppKit.NSThread.isMainThread():
+                AppKit.NSOperationQueue.mainQueue().addOperationWithBlock_(self.stop_recording)
+                return
+        except ImportError:
+            pass
+
         if not self._recording:
             return
 
@@ -202,7 +218,10 @@ class WhisperMeApp(rumps.App):
         try:
             import AppKit
             def _on_main():
-                self.title = ICON_IDLE
+                try:
+                    self.title = ICON_IDLE
+                except Exception:
+                    logger.debug("Failed to reset title", exc_info=True)
             AppKit.NSOperationQueue.mainQueue().addOperationWithBlock_(_on_main)
         except ImportError:
             self.title = ICON_IDLE

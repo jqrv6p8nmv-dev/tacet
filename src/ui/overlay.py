@@ -146,13 +146,19 @@ class StatusOverlay:
             AppKit.NSThread.isMainThread()  # Just to confirm AppKit is usable
 
             def _update():
-                self._create_window()
-                if state == OverlayState.HIDDEN:
-                    self._window.orderOut_(None)
-                    return
-                label = _STATE_LABELS.get(state, "")
-                self._label.setStringValue_(label)
-                self._window.orderFrontRegardless()
+                try:
+                    self._create_window()
+                    if state == OverlayState.HIDDEN:
+                        if self._window is not None:
+                            self._window.orderOut_(None)
+                        return
+                    if self._window is None or self._label is None:
+                        return
+                    label = _STATE_LABELS.get(state, "")
+                    self._label.setStringValue_(label)
+                    self._window.orderFrontRegardless()
+                except Exception:
+                    logger.debug(f"Overlay _update failed for state {state.name}", exc_info=True)
 
             AppKit.NSOperationQueue.mainQueue().addOperationWithBlock_(_update)
 
