@@ -118,7 +118,7 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     listener.start()
     logger.info(f"Hotkey registered: {listener.hotkey_str}")
-    logger.info("WhisperMe ready. Hold Fn to record.")
+    logger.info(f"WhisperMe ready. Hotkey: {listener.hotkey_str}")
 
     try:
         app.run()

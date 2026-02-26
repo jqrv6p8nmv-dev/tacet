@@ -128,7 +128,7 @@ print_run_instructions() {
     echo "    source .venv/bin/activate"
     echo "    python -m src.main"
     echo ""
-    echo "  Hotkey: Hold Fn key to record, release to transcribe"
+    echo "  Hotkey: Press Ctrl+Shift+Space to start/stop recording"
     echo ""
 }
 
