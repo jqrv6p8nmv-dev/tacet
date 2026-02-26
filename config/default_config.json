@@ -1,6 +1,6 @@
 {
   "hotkey": {
-    "record": "fn",
+    "record": "ctrl+shift+space",
     "command_mode": "ctrl+shift+c"
   },
   "transcription": {
