@@ -58,8 +58,8 @@ class ProcessingPipeline:
             handle_corrections=self.handle_corrections,
         )
 
-        # Step 2: LLM polish (if enabled)
-        if self.llm_cleanup:
+        # Step 2: LLM polish (if enabled and Ollama is reachable)
+        if self.llm_cleanup and is_ollama_available(self.ollama_url):
             bundle_id = get_active_app_bundle_id()
             app_name = get_active_app_name()
             context_hint = get_llm_context_hint(bundle_id, app_name)
@@ -69,11 +69,14 @@ class ProcessingPipeline:
                 ollama_model=self.ollama_model,
                 ollama_url=self.ollama_url,
                 context_app=context_hint,
+                timeout=5.0,
             )
             if polished:
                 text = polished
             else:
-                logger.info("LLM unavailable — using rule-based output only")
+                logger.info("LLM polish failed — using rule-based output only")
+        elif self.llm_cleanup:
+            logger.info("Ollama not available — using rule-based output only")
 
         # Step 3: Custom dictionary substitutions
         text = self.dictionary.apply(text)

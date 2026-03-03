@@ -19,7 +19,7 @@
   "audio": {
     "sample_rate": 16000,
     "channels": 1,
-    "silence_threshold": 500,
+    "silence_threshold": 0.01,
     "silence_duration": 1.5,
     "max_duration": 60
   },

@@ -161,8 +161,9 @@ class WhisperMeApp(rumps.App):
 
         logger.info("Stopping recording…")
         self._recording = False
+        self._processing = True
         self.title = ICON_PROCESSING
-        self.menu["Stop Recording"].title = "Start Recording"
+        self.menu["Start Recording"].title = "Start Recording"
 
         if self._overlay:
             self._overlay.show_processing()
@@ -185,14 +186,19 @@ class WhisperMeApp(rumps.App):
 
     def _process_audio(self) -> None:
         """Background thread: stop capture → transcribe → clean → insert."""
+        import time
         try:
+            t0 = time.perf_counter()
             audio = self._capture.stop() if self._capture else None
             if audio is None or len(audio) == 0:
                 logger.warning("No audio captured")
                 self._finish(success=False)
                 return
+            logger.info(f"[timing] capture.stop: {time.perf_counter()-t0:.2f}s")
 
+            t1 = time.perf_counter()
             text = self._whisper.transcribe(audio) if self._whisper else ""
+            logger.info(f"[timing] transcribe: {time.perf_counter()-t1:.2f}s")
             if not text:
                 logger.warning("Transcription returned empty result")
                 self._finish(success=False)
@@ -200,12 +206,18 @@ class WhisperMeApp(rumps.App):
 
             logger.info(f"Transcribed: {text!r}")
 
+            t2 = time.perf_counter()
             if self._pipeline:
                 text = self._pipeline.process(text)
+            logger.info(f"[timing] pipeline: {time.perf_counter()-t2:.2f}s")
 
+            t3 = time.perf_counter()
             from ..insertion.paste import insert_text
             restore = self.config.get("clipboard_restore", True)
             success = insert_text(text, restore_clipboard=restore)
+            logger.info(f"[timing] insert_text: {time.perf_counter()-t3:.2f}s")
+
+            logger.info(f"[timing] total: {time.perf_counter()-t0:.2f}s")
             self._finish(success=success)
 
         except Exception:

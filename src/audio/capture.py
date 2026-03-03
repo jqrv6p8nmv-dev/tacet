@@ -77,9 +77,6 @@ class AudioCapture:
         Stop recording and return the captured audio as a float32 numpy array.
         Returns None if no audio was captured.
         """
-        if not self._recording:
-            return None
-
         self._recording = False
         if self._stream:
             self._stream.stop()

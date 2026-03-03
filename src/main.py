@@ -99,7 +99,13 @@ def main() -> None:
     )
 
     # ------------------------------------------------------------------ #
-    # 3. Check permissions (non-blocking warning)
+    # 3. Warm up Whisper in background so first transcription is instant
+    # ------------------------------------------------------------------ #
+    import threading
+    threading.Thread(target=whisper_engine.warm_up, daemon=True).start()
+
+    # ------------------------------------------------------------------ #
+    # 4. Check permissions (non-blocking warning)
     # ------------------------------------------------------------------ #
     from .insertion.paste import check_accessibility_permission
     if not check_accessibility_permission():
@@ -114,7 +120,7 @@ def main() -> None:
         )
 
     # ------------------------------------------------------------------ #
-    # 4. Start listener and run the app
+    # 5. Start listener and run the app
     # ------------------------------------------------------------------ #
     listener.start()
     logger.info(f"Hotkey registered: {listener.hotkey_str}")

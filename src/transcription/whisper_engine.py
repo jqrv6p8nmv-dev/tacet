@@ -56,6 +56,14 @@ class WhisperEngine:
 
         self._loaded = True
 
+    def warm_up(self) -> None:
+        """Pre-load model weights by running a silent transcription at startup."""
+        try:
+            self.transcribe(np.zeros(1600, dtype=np.float32))  # 0.1s of silence
+            logger.info("Whisper model warm-up complete")
+        except Exception:
+            logger.debug("Whisper warm-up failed (non-fatal)", exc_info=True)
+
     def transcribe(self, audio: np.ndarray) -> str:
         """
         Transcribe a float32 mono audio array at 16kHz.

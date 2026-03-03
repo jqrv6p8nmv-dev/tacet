@@ -13,7 +13,7 @@ import pyperclip
 
 logger = logging.getLogger(__name__)
 
-_RESTORE_DELAY = 0.4  # seconds to wait before restoring clipboard
+_RESTORE_DELAY = 0.1  # seconds to wait before restoring clipboard
 
 
 def insert_text(text: str, restore_clipboard: bool = True) -> bool:
