@@ -128,23 +128,26 @@ class WhisperMeApp(rumps.App):
         except ImportError:
             pass
 
-        if self._processing:
-            logger.debug("Cannot start recording while processing")
-            return
-        if self._recording:
-            return
+        try:
+            if self._processing:
+                logger.debug("Cannot start recording while processing")
+                return
+            if self._recording:
+                return
 
-        logger.info("Starting recording…")
-        self._recording = True
-        self.title = ICON_RECORDING
-        self.menu["Start Recording"].title = "Stop Recording"
+            logger.info("Starting recording…")
+            self._recording = True
+            self.title = ICON_RECORDING
+            self.menu["Start Recording"].title = "Stop Recording"
 
-        if self._overlay:
-            self._overlay.show_recording()
+            if self._overlay:
+                self._overlay.show_recording()
 
-        if self._capture:
-            self._capture.on_auto_stop = self._on_auto_stop
-            self._capture.start()
+            if self._capture:
+                self._capture.on_auto_stop = self._on_auto_stop
+                self._capture.start()
+        except Exception:
+            logger.exception("Error in start_recording")
 
     def stop_recording(self) -> None:
         """Stop recording and kick off processing (called on Fn release or menu click)."""
@@ -156,20 +159,23 @@ class WhisperMeApp(rumps.App):
         except ImportError:
             pass
 
-        if not self._recording:
-            return
+        try:
+            if not self._recording:
+                return
 
-        logger.info("Stopping recording…")
-        self._recording = False
-        self._processing = True
-        self.title = ICON_PROCESSING
-        self.menu["Start Recording"].title = "Start Recording"
+            logger.info("Stopping recording…")
+            self._recording = False
+            self._processing = True
+            self.title = ICON_PROCESSING
+            self.menu["Start Recording"].title = "Start Recording"
 
-        if self._overlay:
-            self._overlay.show_processing()
+            if self._overlay:
+                self._overlay.show_processing()
 
-        t = threading.Thread(target=self._process_audio, daemon=True)
-        t.start()
+            t = threading.Thread(target=self._process_audio, daemon=True)
+            t.start()
+        except Exception:
+            logger.exception("Error in stop_recording")
 
     # ------------------------------------------------------------------
     # Internal callbacks
