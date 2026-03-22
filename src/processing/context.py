@@ -5,28 +5,27 @@ the text style and formatting accordingly.
 Uses NSWorkspace to get the frontmost app's bundle ID on macOS.
 """
 import logging
-import subprocess
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# App bundle ID → formatting profile name
+# App bundle ID -> formatting profile name
 APP_PROFILES: dict[str, str] = {
-    # Email clients → formal tone
+    # Email clients -> formal tone
     "com.apple.mail": "formal",
     "com.microsoft.Outlook": "formal",
-    "com.google.Chrome": "neutral",   # Could be Gmail — heuristic
-    # Messaging / chat → casual
+    "com.google.Chrome": "neutral",   # Could be Gmail -- heuristic
+    # Messaging / chat -> casual
     "com.tinyspeck.slackmacgap": "casual",
     "com.hnc.Discord": "casual",
     "com.apple.MobileSMS": "casual",
     "ru.keepcoder.Telegram": "casual",
-    # Code editors → technical (preserve variable names, etc.)
+    # Code editors -> technical (preserve variable names, etc.)
     "com.microsoft.VSCode": "technical",
     "com.jetbrains.intellij": "technical",
     "com.apple.Xcode": "technical",
     "com.sublimetext.4": "technical",
-    # Notes / writing apps → neutral
+    # Notes / writing apps -> neutral
     "com.apple.Notes": "neutral",
     "md.obsidian": "neutral",
     "com.notion.id": "neutral",
@@ -40,52 +39,36 @@ PROFILE_HINTS: dict[str, str] = {
 }
 
 
+def _get_frontmost_app():
+    """Return the frontmost NSRunningApplication via NSWorkspace, or None."""
+    try:
+        from AppKit import NSWorkspace  # type: ignore
+        return NSWorkspace.sharedWorkspace().frontmostApplication()
+    except Exception:
+        return None
+
+
 def get_active_app_bundle_id() -> Optional[str]:
     """
     Return the bundle ID of the currently frontmost application, or None on failure.
 
-    Uses osascript to query NSWorkspace via AppleScript.
+    Uses NSWorkspace directly (no osascript / ScriptMonitor required).
     """
-    try:
-        result = subprocess.run(
-            [
-                "osascript",
-                "-e",
-                'tell application "System Events" to get bundle identifier of '
-                "(first process whose frontmost is true)",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=2.0,
-        )
-        if result.returncode == 0:
-            bundle_id = result.stdout.strip()
-            logger.debug(f"Active app: {bundle_id}")
-            return bundle_id
-    except (subprocess.TimeoutExpired, OSError):
-        logger.debug("Could not determine active app bundle ID")
-    return None
+    app = _get_frontmost_app()
+    if app is None:
+        return None
+    bundle_id = app.bundleIdentifier()
+    if bundle_id:
+        logger.debug(f"Active app: {bundle_id}")
+    return bundle_id or None
 
 
 def get_active_app_name() -> Optional[str]:
     """Return the display name of the frontmost app."""
-    try:
-        result = subprocess.run(
-            [
-                "osascript",
-                "-e",
-                'tell application "System Events" to get name of '
-                "(first process whose frontmost is true)",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=2.0,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except (subprocess.TimeoutExpired, OSError):
-        pass
-    return None
+    app = _get_frontmost_app()
+    if app is None:
+        return None
+    return app.localizedName() or None
 
 
 def get_formatting_profile(bundle_id: Optional[str] = None) -> str:
