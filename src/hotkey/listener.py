@@ -134,7 +134,10 @@ class HotkeyListener:
             if self.on_activate:
                 threading.Thread(target=self.on_activate, daemon=True).start()
 
-        self._listener = keyboard.GlobalHotKeys({self._hotkey_str: _on_hotkey})
+        self._listener = keyboard.GlobalHotKeys(
+            {self._hotkey_str: _on_hotkey},
+            suppress=False,
+        )
         self._listener.daemon = True
         self._listener.start()
         self._running = True

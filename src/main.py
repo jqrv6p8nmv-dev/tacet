@@ -120,7 +120,19 @@ def main() -> None:
         )
 
     # ------------------------------------------------------------------ #
-    # 5. Start listener and run the app
+    # 5. Install SIGINT handler for clean Ctrl+C exit
+    # ------------------------------------------------------------------ #
+    import signal
+    import rumps as _rumps
+
+    def _sigint_handler(sig, frame):
+        logger.info("Received SIGINT — shutting down…")
+        _rumps.quit_application()
+
+    signal.signal(signal.SIGINT, _sigint_handler)
+
+    # ------------------------------------------------------------------ #
+    # 6. Start listener and run the app
     # ------------------------------------------------------------------ #
     listener.start()
     logger.info(f"Hotkey registered: {listener.hotkey_str}")
