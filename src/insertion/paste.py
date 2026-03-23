@@ -4,8 +4,9 @@ Text insertion via NSPasteboard + simulated Cmd+V.
 Saves and restores the original clipboard contents so the user's
 copied data is not lost after dictation.
 """
+import ctypes
+import ctypes.util
 import logging
-import subprocess
 import time
 from typing import Optional
 
@@ -23,7 +24,7 @@ def insert_text(text: str, restore_clipboard: bool = True) -> bool:
     Steps:
       1. Save current clipboard contents
       2. Copy `text` to clipboard
-      3. Simulate Cmd+V via osascript
+      3. Simulate Cmd+V via pynput keyboard controller
       4. Restore original clipboard after a short delay
 
     Returns True on success, False on failure.
@@ -63,30 +64,18 @@ def insert_text(text: str, restore_clipboard: bool = True) -> bool:
 
 def _simulate_paste() -> bool:
     """
-    Send Cmd+V to the frontmost application via AppleScript.
+    Send Cmd+V to the frontmost application via pynput keyboard controller.
     Returns True on success.
     """
-    script = (
-        'tell application "System Events" to keystroke "v" using {command down}'
-    )
     try:
-        result = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True,
-            text=True,
-            timeout=5.0,
-        )
-        if result.returncode != 0:
-            logger.error(f"osascript paste failed: {result.stderr.strip()}")
-            return False
+        from pynput.keyboard import Controller as KeyboardController, Key
+        kb = KeyboardController()
+        kb.press(Key.cmd)
+        kb.press('v')
+        kb.release('v')
+        kb.release(Key.cmd)
         logger.debug("Cmd+V simulated successfully")
         return True
-    except subprocess.TimeoutExpired:
-        logger.error("osascript paste timed out")
-        return False
-    except FileNotFoundError:
-        logger.error("osascript not found — are you running on macOS?")
-        return False
     except Exception:
         logger.exception("Unexpected error during paste simulation")
         return False
@@ -98,19 +87,11 @@ def check_accessibility_permission() -> bool:
     Returns True if the check passes or is inconclusive.
     """
     try:
-        result = subprocess.run(
-            [
-                "osascript",
-                "-e",
-                'tell application "System Events" to get name of first process '
-                "whose frontmost is true",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=2.0,
-        )
-        if "not allowed assistive access" in result.stderr.lower():
-            return False
-        return True
+        lib_path = ctypes.util.find_library("ApplicationServices")
+        if not lib_path:
+            return True
+        lib = ctypes.cdll.LoadLibrary(lib_path)
+        lib.AXIsProcessTrusted.restype = ctypes.c_bool
+        return bool(lib.AXIsProcessTrusted())
     except Exception:
         return True  # Can't determine — assume OK
