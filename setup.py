@@ -117,16 +117,8 @@ setup(
     packages=find_packages(),
     data_files=DATA_FILES,
     options={"py2app": OPTIONS},
-    setup_requires=["py2app"],
-    install_requires=[
-        "mlx-whisper>=0.4.0",
-        "sounddevice>=0.4.6",
-        "numpy>=1.24.0",
-        "rumps>=0.4.0",
-        "pynput>=1.7.6",
-        "pyperclip>=1.8.2",
-        "requests>=2.31.0",
-        "pyobjc-core>=10.0",
-        "pyobjc-framework-Cocoa>=10.0",
-    ],
+    # Note: setup_requires and install_requires are not used here.
+    # py2app must already be installed in the active venv (scripts/build_app.sh
+    # ensures this).  Listing install_requires causes "no longer supported"
+    # errors with py2app on Python 3.13+.
 )
