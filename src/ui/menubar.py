@@ -10,6 +10,9 @@ import threading
 from pathlib import Path
 from typing import Optional
 
+import os
+import sys
+
 import rumps
 
 logger = logging.getLogger(__name__)
@@ -21,7 +24,13 @@ ICON_PROCESSING = "⏳"
 
 CONFIG_DIR = Path("~/.config/whisperme").expanduser()
 CONFIG_PATH = CONFIG_DIR / "config.json"
-DEFAULT_CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "default_config.json"
+
+# Same frozen-app path logic as config.py — __file__ is unusable inside a zip.
+if getattr(sys, "frozen", False):
+    _resource_dir = Path(os.environ.get("RESOURCEPATH", ""))
+    DEFAULT_CONFIG_PATH = _resource_dir / "config" / "default_config.json"
+else:
+    DEFAULT_CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "default_config.json"
 
 
 def _load_config() -> dict:

@@ -6,6 +6,8 @@ Merges default config with user overrides stored at
 """
 import json
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +15,15 @@ logger = logging.getLogger(__name__)
 
 CONFIG_DIR = Path("~/.config/whisperme").expanduser()
 USER_CONFIG_PATH = CONFIG_DIR / "config.json"
-DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config" / "default_config.json"
+
+# When running as a py2app bundle, __file__ points inside a zip archive and
+# cannot be used for file I/O.  py2app sets the RESOURCEPATH env var to the
+# real Contents/Resources/ directory, which is where DATA_FILES are placed.
+if getattr(sys, "frozen", False):
+    _resource_dir = Path(os.environ.get("RESOURCEPATH", ""))
+    DEFAULT_CONFIG_PATH = _resource_dir / "config" / "default_config.json"
+else:
+    DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config" / "default_config.json"
 
 
 def _deep_merge(base: dict, override: dict) -> dict:
