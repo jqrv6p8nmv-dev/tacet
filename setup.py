@@ -4,6 +4,8 @@ Setup script for WhisperMe — used exclusively by py2app to build the .app bund
 Build command:
     bash scripts/build_app.sh
 """
+import glob
+import os
 import sys
 
 # modulegraph's recursive AST visitor exceeds the default limit when scanning
@@ -11,6 +13,25 @@ import sys
 sys.setrecursionlimit(10000)
 
 from setuptools import setup
+
+# ── Find libportaudio.dylib ───────────────────────────────────────────────────
+# sounddevice ships libportaudio inside _sounddevice_data/portaudio-binaries/.
+# py2app zips everything into python314.zip, but dlopen() cannot load dylibs
+# from inside a zip.  Adding it to "frameworks" copies it to Contents/Frameworks/
+# so dlopen can reach it.  capture.py patches find_library('portaudio') at
+# runtime to return this copy before sounddevice is imported.
+def _find_portaudio() -> list:
+    site = os.path.join(os.path.dirname(__file__), ".venv", "lib")
+    matches = glob.glob(
+        os.path.join(site, "python*/site-packages/_sounddevice_data/portaudio-binaries/libportaudio*.dylib")
+    )
+    if matches:
+        return matches[:1]
+    # Fall back to a homebrew copy if present
+    for p in ("/opt/homebrew/lib/libportaudio.dylib", "/usr/local/lib/libportaudio.dylib"):
+        if os.path.exists(p):
+            return [p]
+    return []
 
 APP = ["run.py"]
 
@@ -21,6 +42,7 @@ DATA_FILES = [
 
 OPTIONS = {
     "argv_emulation": False,
+    "frameworks": _find_portaudio(),
     "plist": {
         "LSUIElement": True,
         "CFBundleName": "WhisperMe",

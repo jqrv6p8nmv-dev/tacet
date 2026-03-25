@@ -4,14 +4,50 @@ Microphone capture using sounddevice.
 Records at 16kHz mono (Whisper's expected format) and uses a ring buffer
 approach with silence detection for auto-stop.
 """
+import ctypes.util as _ctypes_util
 import logging
+import os
 import threading
 import time
 from collections import deque
 from typing import Callable, Optional
 
 import numpy as np
-import sounddevice as sd
+
+
+def _bundle_portaudio_path() -> str | None:
+    """Return the absolute path to libportaudio.dylib inside the app bundle.
+
+    When running from the built .app, py2app copies the dylib to
+    Contents/Frameworks/.  Walk up the directory tree from this file to find it.
+    Returns None when running directly from the source tree (venv is fine there).
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = here
+    for _ in range(10):
+        candidate = os.path.join(path, "Frameworks", "libportaudio.dylib")
+        if os.path.exists(candidate):
+            return candidate
+        path = os.path.dirname(path)
+    return None
+
+
+# sounddevice calls ctypes.util.find_library("portaudio") at import time.
+# Inside the app bundle the system lookup fails and the fallback tries to load
+# the dylib from inside python314.zip (which dlopen cannot do).  Patch
+# find_library so it returns the copy in Contents/Frameworks/ when available.
+_portaudio_fw = _bundle_portaudio_path()
+if _portaudio_fw:
+    _orig_find_library = _ctypes_util.find_library
+
+    def _patched_find_library(name: str) -> str | None:
+        if name == "portaudio":
+            return _portaudio_fw
+        return _orig_find_library(name)
+
+    _ctypes_util.find_library = _patched_find_library
+
+import sounddevice as sd  # noqa: E402 — must come after the patch above
 
 logger = logging.getLogger(__name__)
 
