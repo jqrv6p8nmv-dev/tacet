@@ -43,7 +43,8 @@ fi
 
 info "Installing py2app..."
 "$PIP" install --quiet --upgrade py2app
-success "py2app ready"
+PY2APP_VER=$("$PYTHON" -c "import py2app; print(py2app.__version__)" 2>/dev/null || echo "unknown")
+success "py2app ready (version $PY2APP_VER)"
 
 # ── Clean previous builds ────────────────────────────────────────────────────
 

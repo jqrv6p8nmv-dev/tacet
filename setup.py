@@ -1,48 +1,30 @@
 """
-Setup script for WhisperMe.
-Used by py2app to create a standalone .app bundle.
+Setup script for WhisperMe — used exclusively by py2app to build the .app bundle.
 
-Build the app:
+Build command:
     bash scripts/build_app.sh
 """
-from setuptools import setup, find_packages
+from setuptools import setup
 
-# ── py2app entry point ───────────────────────────────────────────────────────
-# Must be a root-level script (not inside a package) to avoid relative-import
-# issues. See run.py for freeze_support() and the actual launch logic.
 APP = ["run.py"]
 
-# ── Data files bundled into Contents/Resources/ ──────────────────────────────
 DATA_FILES = [
-    # Placed at Contents/Resources/config/default_config.json
+    # Bundled at Contents/Resources/config/default_config.json
     ("config", ["config/default_config.json"]),
 ]
 
-# ── py2app options ────────────────────────────────────────────────────────────
 OPTIONS = {
-    # No argv emulation — rumps/AppKit handle the event loop directly.
     "argv_emulation": False,
-
-    # Info.plist overrides
     "plist": {
-        "LSUIElement": True,            # Menubar-only app (no Dock icon)
+        "LSUIElement": True,
         "CFBundleName": "WhisperMe",
         "CFBundleDisplayName": "WhisperMe",
         "CFBundleIdentifier": "com.whisperme.app",
         "CFBundleVersion": "0.1.0",
         "CFBundleShortVersionString": "0.1.0",
-        # Permission usage strings shown in System Settings
-        "NSMicrophoneUsageDescription": (
-            "WhisperMe needs microphone access to capture your speech."
-        ),
-        "NSAccessibilityUsageDescription": (
-            "WhisperMe needs Accessibility access to insert text and listen for hotkeys."
-        ),
+        "NSMicrophoneUsageDescription": "WhisperMe needs microphone access to capture your speech.",
+        "NSAccessibilityUsageDescription": "WhisperMe needs Accessibility access to insert text and listen for hotkeys.",
     },
-
-    # Force these top-level packages to be included as directory trees rather
-    # than being frozen into the zip. Needed for packages that do runtime
-    # resource loading or have native extensions.
     "packages": [
         "src",
         "rumps",
@@ -57,13 +39,11 @@ OPTIONS = {
         "Foundation",
         "Cocoa",
         "objc",
-        "certifi",      # requests TLS certs
+        "certifi",
         "charset_normalizer",
         "urllib3",
         "idna",
     ],
-
-    # Individual modules that py2app's static analysis might miss
     "includes": [
         "numpy.core",
         "ctypes",
@@ -71,19 +51,13 @@ OPTIONS = {
         "threading",
         "multiprocessing",
         "multiprocessing.resource_tracker",
-        "multiprocessing.managers",
         "logging",
         "logging.handlers",
         "signal",
         "json",
         "pathlib",
         "queue",
-        "re",
-        "time",
-        "abc",
     ],
-
-    # Packages that are definitely not needed — trimming reduces bundle size
     "excludes": [
         "tkinter",
         "_tkinter",
@@ -109,16 +83,6 @@ OPTIONS = {
 
 setup(
     app=APP,
-    name="WhisperMe",
-    version="0.1.0",
-    description="Local-first voice dictation for macOS",
-    author="WhisperMe contributors",
-    license="MIT",
-    packages=find_packages(),
     data_files=DATA_FILES,
     options={"py2app": OPTIONS},
-    # Note: setup_requires and install_requires are not used here.
-    # py2app must already be installed in the active venv (scripts/build_app.sh
-    # ensures this).  Listing install_requires causes "no longer supported"
-    # errors with py2app on Python 3.13+.
 )
