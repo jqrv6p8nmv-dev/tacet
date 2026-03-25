@@ -39,12 +39,11 @@ OPTIONS = {
         "pynput",
         "pyperclip",
         "requests",
-        "mlx",
-        "mlx_whisper",
-        "AppKit",
-        "Foundation",
-        "Cocoa",
-        "objc",
+        # mlx / mlx_whisper: Apple's MLX framework has a non-standard
+        # package layout that imp_find_module can't resolve; modulegraph
+        # already discovers them via static analysis of the import graph.
+        # AppKit / Foundation / Cocoa / objc: PyObjC system bridges are
+        # handled internally by py2app and must NOT be listed here.
         "certifi",
         "charset_normalizer",
         "urllib3",
