@@ -4,6 +4,12 @@ Setup script for WhisperMe — used exclusively by py2app to build the .app bund
 Build command:
     bash scripts/build_app.sh
 """
+import sys
+
+# modulegraph's recursive AST visitor exceeds the default limit when scanning
+# large dependency trees (mlx, numpy, etc.) on Python 3.14+.
+sys.setrecursionlimit(10000)
+
 from setuptools import setup
 
 APP = ["run.py"]
