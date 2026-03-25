@@ -95,7 +95,6 @@ OPTIONS = {
         "unittest",
         "distutils",
         "lib2to3",
-        "email",
         "http.server",
         "xmlrpc",
         "ftplib",
