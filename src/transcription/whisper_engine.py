@@ -40,8 +40,8 @@ class WhisperEngine:
                 logger.info(f"mlx-whisper backend ready (model: {self.model})")
             except ImportError as _mlx_err:
                 logger.warning(
-                    "mlx-whisper not available (%s) — falling back to openai-whisper",
-                    _mlx_err,
+                    "mlx-whisper not available — falling back to openai-whisper",
+                    exc_info=True,
                 )
                 self.backend = "openai-whisper"
 
