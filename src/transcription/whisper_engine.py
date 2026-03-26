@@ -38,9 +38,10 @@ class WhisperEngine:
             try:
                 import mlx_whisper  # noqa: F401 — just verify importability
                 logger.info(f"mlx-whisper backend ready (model: {self.model})")
-            except ImportError:
+            except ImportError as _mlx_err:
                 logger.warning(
-                    "mlx-whisper not installed — falling back to openai-whisper"
+                    "mlx-whisper not available (%s) — falling back to openai-whisper",
+                    _mlx_err,
                 )
                 self.backend = "openai-whisper"
 
