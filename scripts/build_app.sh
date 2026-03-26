@@ -95,6 +95,21 @@ else
     for DIST_INFO in "$VENV_SITE"/mlx*.dist-info "$VENV_SITE"/mlx_whisper*.dist-info; do
         [[ -d "$DIST_INFO" ]] && cp -r "$DIST_INFO" "$BUNDLE_PY_LIB" 2>/dev/null || true
     done
+
+    # Fix mlx C-extension rpath: core.cpython-*.so links against @rpath/libmlx.dylib
+    # but there is no rpath pointing to mlx/lib/ inside the bundle.  Rewrite the
+    # reference to use @loader_path (= the directory of the .so itself) so the
+    # dynamic linker finds mlx/lib/libmlx.dylib without needing DYLD_LIBRARY_PATH.
+    MLX_SO=$(ls "$BUNDLE_PY_LIB"mlx/core.cpython-*.so 2>/dev/null | head -1)
+    if [[ -n "$MLX_SO" && -f "$BUNDLE_PY_LIB"mlx/lib/libmlx.dylib ]]; then
+        install_name_tool -change \
+            @rpath/libmlx.dylib \
+            @loader_path/lib/libmlx.dylib \
+            "$MLX_SO" 2>/dev/null && success "Fixed libmlx.dylib rpath in bundle" \
+            || info "Warning: install_name_tool failed — mlx may not load correctly"
+    else
+        info "Warning: mlx .so or libmlx.dylib not found — skipping rpath fix"
+    fi
 fi
 
 # ── Ad-hoc code sign ─────────────────────────────────────────────────────────
