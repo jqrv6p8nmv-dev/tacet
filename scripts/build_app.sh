@@ -62,6 +62,41 @@ fi
 
 success "Build complete: $DIST_DIR/WhisperMe.app"
 
+# ── Copy mlx + mlx_whisper into the bundle ───────────────────────────────────
+# py2app's collect_packagedirs uses imp.find_module, which crashes on mlx's
+# non-standard package layout.  We intentionally exclude mlx/mlx_whisper from
+# setup.py's packages list and copy them manually here instead.
+
+VENV_SITE=$("$PYTHON" -c "import site; print(site.getsitepackages()[0])" 2>/dev/null || true)
+
+# Locate the python-versioned lib dir inside the app bundle
+BUNDLE_LIB="$DIST_DIR/WhisperMe.app/Contents/Resources/lib"
+BUNDLE_PY_LIB=$(ls -d "$BUNDLE_LIB"/python3.*/ 2>/dev/null | head -1)
+
+if [[ -z "$BUNDLE_PY_LIB" ]]; then
+    info "Warning: could not find python lib dir inside bundle — skipping mlx copy"
+elif [[ -z "$VENV_SITE" ]]; then
+    info "Warning: could not determine venv site-packages — skipping mlx copy"
+else
+    for PKG in mlx mlx_whisper; do
+        SRC="$VENV_SITE/$PKG"
+        DST="$BUNDLE_PY_LIB$PKG"
+        if [[ -d "$SRC" ]]; then
+            rm -rf "$DST"
+            cp -r "$SRC" "$DST"
+            success "Copied $PKG into bundle"
+        else
+            info "Warning: $PKG not found in venv ($SRC) — transcription will fall back"
+        fi
+    done
+
+    # mlx ships compiled .so extensions; also copy any mlx_*.dist-info dirs
+    # so that importlib.metadata can find the package if needed.
+    for DIST_INFO in "$VENV_SITE"/mlx*.dist-info "$VENV_SITE"/mlx_whisper*.dist-info; do
+        [[ -d "$DIST_INFO" ]] && cp -r "$DIST_INFO" "$BUNDLE_PY_LIB" 2>/dev/null || true
+    done
+fi
+
 # ── Ad-hoc code sign ─────────────────────────────────────────────────────────
 # An ad-hoc signature lets the app run on the build machine without Gatekeeper
 # blocking it every launch.  It is NOT a Developer ID signature — the app
