@@ -64,26 +64,52 @@ def insert_text(text: str, restore_clipboard: bool = True) -> bool:
 
 def _simulate_paste() -> bool:
     """
-    Send Cmd+V to the frontmost application via osascript.
+    Send Cmd+V via CoreGraphics CGEventPost (no osascript, no ScriptMonitor).
     Returns True on success.
     """
-    import subprocess
+    import ctypes
     try:
-        result = subprocess.run(
-            [
-                "osascript", "-e",
-                'tell application "System Events" to keystroke "v" using {command down}',
-            ],
-            capture_output=True,
-            timeout=5,
+        CG = ctypes.cdll.LoadLibrary(
+            "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
         )
-        if result.returncode == 0:
-            logger.debug("Cmd+V simulated via osascript")
-            return True
-        logger.warning("osascript paste failed (rc=%d): %s", result.returncode, result.stderr.decode())
-        return False
+        CF = ctypes.cdll.LoadLibrary(
+            "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
+        )
+
+        CG.CGEventSourceCreate.restype = ctypes.c_void_p
+        CG.CGEventSourceCreate.argtypes = [ctypes.c_int]
+        CG.CGEventCreateKeyboardEvent.restype = ctypes.c_void_p
+        CG.CGEventCreateKeyboardEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint16, ctypes.c_bool]
+        CG.CGEventSetFlags.restype = None
+        CG.CGEventSetFlags.argtypes = [ctypes.c_void_p, ctypes.c_uint64]
+        CG.CGEventPost.restype = None
+        CG.CGEventPost.argtypes = [ctypes.c_int, ctypes.c_void_p]
+        CF.CFRelease.restype = None
+        CF.CFRelease.argtypes = [ctypes.c_void_p]
+
+        kCGHIDEventTap = 0
+        kCGEventSourceStateCombinedSessionState = 1
+        kCGEventFlagMaskCommand = 1 << 20
+        V_KEYCODE = 9
+
+        src = CG.CGEventSourceCreate(kCGEventSourceStateCombinedSessionState)
+
+        v_down = CG.CGEventCreateKeyboardEvent(src, V_KEYCODE, True)
+        CG.CGEventSetFlags(v_down, kCGEventFlagMaskCommand)
+        CG.CGEventPost(kCGHIDEventTap, v_down)
+        CF.CFRelease(v_down)
+
+        v_up = CG.CGEventCreateKeyboardEvent(src, V_KEYCODE, False)
+        CG.CGEventSetFlags(v_up, kCGEventFlagMaskCommand)
+        CG.CGEventPost(kCGHIDEventTap, v_up)
+        CF.CFRelease(v_up)
+
+        CF.CFRelease(src)
+
+        logger.debug("Cmd+V simulated via CGEventPost")
+        return True
     except Exception:
-        logger.exception("Unexpected error during paste simulation")
+        logger.exception("CGEventPost paste failed")
         return False
 
 
