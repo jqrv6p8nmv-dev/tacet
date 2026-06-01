@@ -105,18 +105,14 @@ def main() -> None:
     threading.Thread(target=whisper_engine.warm_up, daemon=True).start()
 
     # ------------------------------------------------------------------ #
-    # 4. Check permissions (non-blocking warning)
+    # 4. Check permissions (log only — do not block startup with a dialog)
     # ------------------------------------------------------------------ #
     from .insertion.paste import check_accessibility_permission
     if not check_accessibility_permission():
-        import rumps
-        rumps.alert(
-            title="Accessibility Permission Required",
-            message=(
-                "WhisperMe needs Accessibility access to insert text.\n\n"
-                "Go to: System Settings → Privacy & Security → Accessibility\n"
-                "and enable WhisperMe (or Terminal if running from the command line)."
-            ),
+        logger.warning(
+            "AXIsProcessTrusted() returned False — text insertion may not work. "
+            "Grant Accessibility access to python3.14 in System Settings → "
+            "Privacy & Security → Accessibility."
         )
 
     # ------------------------------------------------------------------ #
