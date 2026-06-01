@@ -118,13 +118,24 @@ class StatusOverlay:
         content_view = self._window.contentView()
         content_view.setWantsLayer_(True)
         layer = content_view.layer()
-        layer.setCornerRadius_(12.0)
-        layer.setMasksToBounds_(True)
-        layer.setBackgroundColor_(
-            AppKit.NSColor.colorWithCalibratedRed_green_blue_alpha_(
-                0.1, 0.1, 0.1, 0.88
-            ).CGColor()
-        )
+        if layer is not None:
+            try:
+                layer.setCornerRadius_(12.0)
+                layer.setMasksToBounds_(True)
+                layer.setBackgroundColor_(
+                    AppKit.NSColor.colorWithCalibratedRed_green_blue_alpha_(
+                        0.1, 0.1, 0.1, 0.88
+                    ).CGColor()
+                )
+            except Exception:
+                logger.debug("Layer styling unavailable — using plain background", exc_info=True)
+                self._window.setBackgroundColor_(
+                    AppKit.NSColor.colorWithCalibratedRed_green_blue_alpha_(0.1, 0.1, 0.1, 0.88)
+                )
+        else:
+            self._window.setBackgroundColor_(
+                AppKit.NSColor.colorWithCalibratedRed_green_blue_alpha_(0.1, 0.1, 0.1, 0.88)
+            )
         content_view.addSubview_(self._label)
 
     def set_state(self, state: OverlayState) -> None:
