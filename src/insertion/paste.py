@@ -64,18 +64,24 @@ def insert_text(text: str, restore_clipboard: bool = True) -> bool:
 
 def _simulate_paste() -> bool:
     """
-    Send Cmd+V to the frontmost application via pynput keyboard controller.
+    Send Cmd+V to the frontmost application via osascript.
     Returns True on success.
     """
+    import subprocess
     try:
-        from pynput.keyboard import Controller as KeyboardController, Key
-        kb = KeyboardController()
-        kb.press(Key.cmd)
-        kb.press('v')
-        kb.release('v')
-        kb.release(Key.cmd)
-        logger.debug("Cmd+V simulated successfully")
-        return True
+        result = subprocess.run(
+            [
+                "osascript", "-e",
+                'tell application "System Events" to keystroke "v" using {command down}',
+            ],
+            capture_output=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            logger.debug("Cmd+V simulated via osascript")
+            return True
+        logger.warning("osascript paste failed (rc=%d): %s", result.returncode, result.stderr.decode())
+        return False
     except Exception:
         logger.exception("Unexpected error during paste simulation")
         return False
