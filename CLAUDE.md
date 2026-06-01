@@ -3,66 +3,77 @@
 ## What This App Does
 macOS menubar dictation app: records audio → transcribes via mlx-whisper (Apple Silicon) → optionally polishes via LLM → inserts text at cursor.
 
-Packaged as a standalone `.app` bundle using **py2app**.
+**Deployed as a macOS LaunchAgent** (not a py2app bundle — that path was abandoned). Runs directly from the venv via `scripts/install_launchagent.sh`. Starts automatically on login, no Terminal needed.
 
 ## Environment
 - macOS, Apple Silicon (arm64)
 - Python 3.14 (`.venv/`)
-- py2app 0.28.10+
-- Primary model: `mlx-community/whisper-small-mlx` via `mlx_whisper`
+- Primary model: `mlx-community/whisper-tiny-mlx` via `mlx_whisper`
+- Hotkey: `ctrl+shift+space` (toggle mode)
 
 ## Entry Point
-`run.py` → `src/main.py` → `src/ui/menubar.py` (rumps menubar app)
-
-## Build
-```bash
-bash scripts/build_app.sh
-# Output: dist/WhisperMe.app
-```
+`src/main.py` → `src/ui/menubar.py` (rumps menubar app)
 
 ## Key Files
 | File | Purpose |
 |------|---------|
-| `setup.py` | py2app build config |
-| `scripts/build_app.sh` | Build orchestration + post-build mlx copy |
+| `scripts/install_launchagent.sh` | Installs LaunchAgent plist, starts app on login |
 | `src/audio/capture.py` | Microphone capture (sounddevice, 16kHz mono) |
-| `src/transcription/whisper_engine.py` | mlx-whisper engine with openai-whisper fallback |
+| `src/transcription/whisper_engine.py` | mlx-whisper engine |
 | `src/ui/menubar.py` | rumps menubar UI |
-| `src/hotkey/listener.py` | Global hotkey via pynput |
-| `src/insertion/paste.py` | Text insertion via Accessibility API / pyperclip |
+| `src/hotkey/listener.py` | Global hotkey via NSEvent (no pynput/ScriptMonitor) |
+| `src/insertion/paste.py` | Text insertion via CGEventPost (no osascript) |
+| `src/ui/overlay.py` | Floating status indicator (recording/processing/done) |
 | `config/default_config.json` | Default user settings |
 
-## Known py2app Quirks (Hard Won)
+## Architecture Decisions (Hard Won)
 
-### 1. Recursion limit
-`sys.setrecursionlimit(10000)` at top of `setup.py` — modulegraph's AST visitor blows the default limit on large deps (mlx, numpy).
+### Hotkey: NSEvent, not pynput
+`pynput.GlobalHotKeys` uses ScriptMonitor which crashes after 1-2 uses on Ventura/Sonoma.
+`src/hotkey/listener.py` uses `NSEvent.addGlobalMonitorForEventsMatchingMask_handler_` instead.
+Monitor is created on main thread via `NSOperationQueue.mainQueue().addOperationWithBlock_`.
+`event.isARepeat()` guard prevents rapid-fire when key is held.
 
-### 2. libportaudio.dylib can't load from inside a zip
-`dlopen()` cannot load dylibs from `python314.zip`. Fix:
-- `setup.py`: `"frameworks": _find_portaudio()` — copies dylib to `Contents/Frameworks/`
-- `src/audio/capture.py`: patches `ctypes.util.find_library` before sounddevice imports
+### Paste: CGEventPost, not osascript
+osascript fails with error 1002 ("not allowed to send keystrokes") without Accessibility.
+`src/insertion/paste.py` uses CoreGraphics `CGEventPost` via ctypes to simulate Cmd+V.
+50ms sleep between `pyperclip.copy()` and `CGEventPost` lets clipboard settle.
 
-### 3. mlx / mlx_whisper — imp_find_module crash
-py2app's `collect_packagedirs` uses `imp.find_module` which crashes on mlx's non-standard layout.
-**Do NOT add `mlx` or `mlx_whisper` to the `packages` list in setup.py.**
-Instead, `build_app.sh` copies them manually from the venv into the bundle after py2app finishes.
+### Overlay: guard CALayer calls
+`content_view.layer()` can return None on some macOS versions before layer is initialized.
+`src/ui/overlay.py` guards `setCornerRadius_` and `setBackgroundColor_` with `if layer is not None`.
 
-### 4. PyObjC bridges (AppKit, Foundation, Cocoa, objc)
-py2app handles these internally. **Do NOT add them to `packages`.**
+### No startup dialog
+`rumps.alert()` before `app.run()` crashes the app (modal shown before run loop starts).
+Accessibility check result is logged only — no dialog shown.
 
-### 5. email module
-`urllib3` → `requests` depends on `email`. Do NOT put `email` in `excludes`.
+## macOS Permissions Required
+Both must be enabled in System Settings → Privacy & Security for the app to work:
+1. **Accessibility** → `python3.14` — required for CGEventPost (Cmd+V simulation)
+2. **Input Monitoring** → `python3.14` — required for NSEvent global hotkey listener
 
-### 6. openai-whisper not installed
-Only `mlx_whisper` is in the venv. The fallback in `whisper_engine.py` will always fail if mlx_whisper isn't in the bundle.
+## LaunchAgent Management
+```bash
+# Install / reinstall
+bash scripts/install_launchagent.sh
+
+# Reload after code changes
+launchctl bootout "gui/$(id -u)" ~/Library/LaunchAgents/com.whisperme.app.plist 2>/dev/null; true
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.whisperme.app.plist
+
+# Watch logs
+tail -f ~/Library/Logs/WhisperMe/whisperme-error.log
+```
 
 ## Git
 - Remote: `https://github.com/jqrv6p8nmv-dev/whspr-me`
 - Dev branch: `claude/explain-codebase-mm2f2zzhmujeb9cy-sVI0D`
 
 ## Current Status
-- [x] py2app build completes without errors
-- [x] libportaudio.dylib loads correctly from Contents/Frameworks/
-- [x] App launches, menubar icon appears
+- [x] LaunchAgent installed, starts on login
+- [x] Hotkey `ctrl+shift+space` fires via NSEvent
 - [x] Audio recording works
-- [ ] Transcription: mlx_whisper not in bundle → **post-build copy fix in build_app.sh**
+- [x] Transcription works (mlx-whisper-tiny, ~0.1-0.2s)
+- [x] Text insertion works (CGEventPost Cmd+V)
+- [x] Overlay shows recording/processing/done states
+- [ ] **Pending: verify app auto-starts correctly after full machine restart**
