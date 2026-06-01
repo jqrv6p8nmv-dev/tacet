@@ -121,6 +121,8 @@ class HotkeyListener:
             def _create_monitor():
                 def _handler(event):
                     try:
+                        if event.isARepeat():
+                            return
                         flags = event.modifierFlags() & _MOD_MASK
                         if event.keyCode() == keycode and (flags & mod_flags) == mod_flags:
                             if on_activate:

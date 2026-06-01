@@ -48,6 +48,7 @@ def insert_text(text: str, restore_clipboard: bool = True) -> bool:
         logger.exception("Failed to copy text to clipboard")
         return False
 
+    time.sleep(0.05)  # let the clipboard settle before simulating paste
     success = _simulate_paste()
 
     if restore_clipboard and original_clipboard is not None:
