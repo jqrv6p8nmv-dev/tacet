@@ -1,118 +1,109 @@
 # WhisperMe
 
-Free, local-first voice dictation for macOS. Hold the Fn key, speak naturally, get clean formatted text inserted into any app — no cloud, no subscription.
+Free, local voice dictation for macOS. Press a hotkey, speak naturally, get clean text inserted into any app — no cloud, no subscription, nothing phoning home.
 
-Inspired by Wispr Flow. All processing happens on-device using Apple Silicon-optimized models.
+Inspired by Wispr Flow. All processing runs on-device using Apple Silicon-optimized models.
 
-## Features (MVP)
+---
 
-- **Fn key hold-to-record** — press to start, release to stop (just like a walkie-talkie)
-- **Local Whisper transcription** via `mlx-whisper` (Apple Silicon optimized)
-- **AI text cleanup** via Ollama (removes fillers, fixes punctuation, handles self-corrections)
-- **Text insertion** into any focused app via clipboard paste
-- **Floating status overlay** showing recording / processing / done states
-- **Menubar app** with status icon and quick settings
+## Requirements
 
-## Prerequisites
+- Apple Silicon Mac (M1 / M2 / M3 / M4)
+- macOS Ventura 13 or later
+- [Homebrew](https://brew.sh) (the installer will set it up if missing)
 
-```bash
-# Install Homebrew if needed
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Install system dependencies
-brew install python ffmpeg ollama
-
-# Pull a small LLM for text cleanup
-ollama pull llama3.2:3b
-```
-
-## Installation
+## Install
 
 ```bash
-# Clone and set up
-git clone https://github.com/yourusername/whisperme.git
-cd whisperme
+git clone https://github.com/jqrv6p8nmv-dev/whspr-me.git
+cd whspr-me
 bash scripts/install.sh
 ```
 
-Or manually:
+The installer handles everything: Python, virtual environment, dependencies, and the LaunchAgent that starts WhisperMe automatically on every login.
 
-```bash
-pip install -r requirements.txt
-python -m src.main
-```
+## Grant permissions (required)
+
+After installing, open **System Settings → Privacy & Security** and enable `python3.X` in:
+
+1. **Accessibility** — lets WhisperMe type text into other apps
+2. **Input Monitoring** — lets WhisperMe detect the global hotkey
+
+macOS will prompt you automatically on first use. If not, add `python3.X` manually using the `+` button.
 
 ## Usage
 
-1. Launch WhisperMe — a microphone icon appears in your menubar
-2. **Hold the Fn key** to start recording
-3. Speak naturally
-4. **Release the Fn key** to stop — text is transcribed, cleaned up, and pasted into your focused app
-5. You can also click "Start Recording" in the menubar menu
+WhisperMe runs as a menubar app. Look for 🎙 in your menu bar.
 
-> **Note on the Fn key:** On macOS Sonoma+, the Fn key may open the emoji picker by default.
-> To disable that: **System Settings → Keyboard → Press Fn/Globe key to → Do Nothing**.
-> WhisperMe will then intercept the Fn key directly.
+| Action | Result |
+|--------|--------|
+| Press `Ctrl+Shift+Space` | Start recording (icon turns 🔴) |
+| Press `Ctrl+Shift+Space` again | Stop and transcribe |
+| Stop talking for ~1.5s | Auto-stops and transcribes |
+
+Transcribed text is inserted at the cursor in whatever app is focused.
 
 ## Configuration
 
-Config lives at `~/.config/whisperme/config.json`. See `config/default_config.json` for all options.
+User config lives at `~/.config/whisperme/config.json`. All available options are in `config/default_config.json`.
 
 Key settings:
-- `hotkey.record` — change the trigger key (`"fn"` for Fn hold-to-record, or a combo like `"ctrl+shift+space"` for toggle mode)
-- `transcription.model` — choose Whisper model size (tiny → large)
-- `processing.llm_cleanup` — toggle AI cleanup on/off
-- `processing.ollama_model` — choose which Ollama model to use
 
-## macOS Permissions
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `hotkey.record` | `ctrl+shift+space` | Trigger key combo |
+| `transcription.model` | `mlx-community/whisper-tiny-mlx` | Whisper model size |
+| `processing.llm_cleanup` | `true` | AI text polish via Ollama |
+| `processing.ollama_model` | `llama3.2:3b` | Ollama model to use |
+| `audio.silence_duration` | `1.5` | Seconds of silence before auto-stop |
 
-On first launch, grant these permissions in System Settings → Privacy & Security:
-- **Microphone** — required for audio capture
-- **Accessibility** — required for Fn key detection and text insertion
+## Performance
 
-## Tech Stack
+On Apple Silicon with the default tiny model:
 
-| Component | Technology |
-|-----------|-----------|
-| Language | Python 3.11+ |
-| Menubar UI | rumps |
-| Overlay UI | PyObjC (AppKit) |
-| Audio capture | sounddevice + numpy |
-| Transcription | mlx-whisper (Apple Silicon) |
-| Text cleanup | Ollama API (local LLM) |
-| Text insertion | pyperclip + osascript |
-| Hotkey | pynput |
-| Config | JSON |
+| Step | Time |
+|------|------|
+| Transcription | ~0.1–0.2s |
+| Total (hotkey → text inserted) | ~0.5–0.7s |
+
+For better accuracy at the cost of speed, switch to `mlx-community/whisper-small-mlx` in config.
 
 ## Privacy
 
-- All audio is processed **100% locally** — never leaves your machine
+- Audio is processed **entirely on-device** — never sent anywhere
 - Audio buffers are discarded immediately after transcription
-- No telemetry, no analytics, no accounts
-- Ollama runs fully offline after model download
+- No accounts, no telemetry, no analytics
+- Ollama (if installed) runs fully offline after the initial model download
 
-## Performance Targets (Apple Silicon)
+## Tech stack
 
-| Operation | Target |
-|-----------|--------|
-| Recording → text inserted | < 3 seconds (10s utterance) |
-| Whisper transcription | ~1–2s for 10s audio |
-| LLM cleanup pass | < 1s with llama3.2:3b |
-| Idle memory | < 200 MB |
+| Component | Technology |
+|-----------|-----------|
+| Menubar UI | rumps |
+| Audio capture | sounddevice |
+| Transcription | mlx-whisper (Apple Silicon) |
+| Text cleanup | Ollama (local LLM, optional) |
+| Hotkey detection | AppKit NSEvent global monitor |
+| Text insertion | CoreGraphics CGEventPost |
+| Auto-start | macOS LaunchAgent |
 
-## Development
+## Uninstall
 
 ```bash
-# Run tests
-python -m pytest tests/
-
-# Build .app bundle
-bash scripts/build_app.sh
+bash scripts/uninstall_launchagent.sh
 ```
 
-## Roadmap
+This stops WhisperMe and removes the auto-start entry. To fully remove, delete the `whspr-me` folder and `~/.config/whisperme/`.
 
-- [x] Phase 1: Working MVP
-- [ ] Phase 2: Ollama LLM cleanup + custom dictionary + settings UI
-- [ ] Phase 3: Command mode + context-aware formatting + snippets
-- [ ] Phase 4: Standalone .app packaging + auto-update
+## Logs
+
+```bash
+tail -f ~/Library/Logs/WhisperMe/whisperme-error.log
+```
+
+## Reload after config changes
+
+```bash
+launchctl bootout "gui/$(id -u)" ~/Library/LaunchAgents/com.whisperme.app.plist 2>/dev/null; true
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.whisperme.app.plist
+```

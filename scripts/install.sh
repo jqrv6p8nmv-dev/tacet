@@ -1,148 +1,144 @@
 #!/usr/bin/env bash
-# WhisperMe installation script for macOS
-# Usage: bash scripts/install.sh
+# WhisperMe — one-command installer for macOS (Apple Silicon)
+#
+# Usage:
+#   git clone https://github.com/jqrv6p8nmv-dev/whspr-me
+#   cd whspr-me
+#   bash scripts/install.sh
 
 set -euo pipefail
 
-PYTHON_MIN_VERSION="3.11"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "=========================================="
-echo "  WhisperMe Installer"
-echo "=========================================="
-echo ""
-
-# ── Helper functions ────────────────────────────────────────────────────────
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
 info()    { echo "  [INFO]  $*"; }
 success() { echo "  [✓]     $*"; }
 warn()    { echo "  [WARN]  $*"; }
 error()   { echo "  [ERROR] $*" >&2; exit 1; }
 
-check_macos() {
-    if [[ "$(uname)" != "Darwin" ]]; then
-        error "WhisperMe requires macOS. Detected: $(uname)"
+echo ""
+echo "  ╔══════════════════════════════════╗"
+echo "  ║       WhisperMe Installer        ║"
+echo "  ║  Local voice dictation for macOS ║"
+echo "  ╚══════════════════════════════════╝"
+echo ""
+
+# ── 1. Platform checks ───────────────────────────────────────────────────────
+
+if [[ "$(uname)" != "Darwin" ]]; then
+    error "WhisperMe requires macOS."
+fi
+
+if [[ "$(uname -m)" != "arm64" ]]; then
+    error "WhisperMe requires Apple Silicon (M1/M2/M3/M4). Intel Macs are not supported."
+fi
+
+OS_VER=$(sw_vers -productVersion)
+MAJOR=$(echo "$OS_VER" | cut -d. -f1)
+if [[ "$MAJOR" -lt 13 ]]; then
+    error "WhisperMe requires macOS Ventura (13) or later. Detected: $OS_VER"
+fi
+success "macOS $OS_VER on Apple Silicon"
+
+# ── 2. Homebrew ──────────────────────────────────────────────────────────────
+
+if ! command -v brew &>/dev/null; then
+    info "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    # Add Homebrew to PATH for Apple Silicon
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+success "Homebrew: $(brew --version | head -1)"
+
+# ── 3. Python 3.11+ ──────────────────────────────────────────────────────────
+
+PYTHON_CMD=""
+for cmd in python3.14 python3.13 python3.12 python3.11; do
+    if command -v "$cmd" &>/dev/null; then
+        PYTHON_CMD="$cmd"
+        break
     fi
-    OS_VER=$(sw_vers -productVersion)
-    info "macOS version: $OS_VER"
-}
+done
 
-check_homebrew() {
-    if ! command -v brew &>/dev/null; then
-        warn "Homebrew not found. Installing..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    fi
-    success "Homebrew: $(brew --version | head -1)"
-}
+if [[ -z "$PYTHON_CMD" ]]; then
+    info "Installing Python 3.13 via Homebrew..."
+    brew install python@3.13
+    PYTHON_CMD="python3.13"
+fi
+success "Python: $($PYTHON_CMD --version)"
 
-check_python() {
-    # Find Python 3.11+
-    for cmd in python3.13 python3.12 python3.11 python3; do
-        if command -v "$cmd" &>/dev/null; then
-            ver=$("$cmd" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-            major=$(echo "$ver" | cut -d. -f1)
-            minor=$(echo "$ver" | cut -d. -f2)
-            if [[ "$major" -ge 3 && "$minor" -ge 11 ]]; then
-                PYTHON_CMD="$cmd"
-                success "Python: $ver ($cmd)"
-                return
-            fi
-        fi
-    done
+# ── 4. Virtual environment + dependencies ────────────────────────────────────
 
-    warn "Python 3.11+ not found. Installing via Homebrew..."
-    brew install python@3.11
-    PYTHON_CMD="python3.11"
-    success "Python installed: $($PYTHON_CMD --version)"
-}
+info "Creating virtual environment..."
+cd "$REPO_DIR"
+"$PYTHON_CMD" -m venv .venv
+VENV_PIP="$REPO_DIR/.venv/bin/pip"
+"$VENV_PIP" install --upgrade pip --quiet
+info "Installing dependencies (this may take a few minutes the first time)..."
+"$VENV_PIP" install -r requirements.txt
+success "Dependencies installed"
 
-check_ffmpeg() {
-    if ! command -v ffmpeg &>/dev/null; then
-        info "Installing ffmpeg (required by Whisper)..."
-        brew install ffmpeg
-    fi
-    success "ffmpeg: $(ffmpeg -version 2>&1 | head -1 | awk '{print $3}')"
-}
+# ── 5. Ollama (optional — needed only for AI text cleanup) ───────────────────
 
-check_ollama() {
+echo ""
+read -r -p "  Install Ollama for AI text cleanup? (y/N): " install_ollama
+if [[ "$install_ollama" =~ ^[Yy]$ ]]; then
     if ! command -v ollama &>/dev/null; then
-        info "Installing Ollama (for AI text cleanup)..."
+        info "Installing Ollama..."
         brew install ollama
     fi
     success "Ollama: $(ollama --version 2>&1 | head -1)"
-
-    # Check if a model is available
-    if ! ollama list 2>/dev/null | grep -q "llama\|phi\|gemma"; then
-        info "Pulling llama3.2:3b model for text cleanup (this may take a few minutes)..."
-        ollama pull llama3.2:3b || warn "Failed to pull model — AI cleanup will be disabled until you run: ollama pull llama3.2:3b"
+    if ! ollama list 2>/dev/null | grep -q "llama3.2:3b"; then
+        info "Pulling llama3.2:3b model (this may take a few minutes)..."
+        ollama pull llama3.2:3b || warn "Failed to pull model — run 'ollama pull llama3.2:3b' later"
     fi
-}
+else
+    info "Skipping Ollama — AI cleanup will be disabled. You can install it later."
+fi
 
-install_python_deps() {
-    info "Creating virtual environment at $REPO_DIR/.venv ..."
-    cd "$REPO_DIR"
-    $PYTHON_CMD -m venv .venv
-    VENV_PYTHON="$REPO_DIR/.venv/bin/python"
-    VENV_PIP="$REPO_DIR/.venv/bin/pip"
-    "$VENV_PIP" install --upgrade pip --quiet
-    "$VENV_PIP" install -r requirements.txt --quiet
-    success "Python packages installed into .venv"
-}
+# ── 6. User config ───────────────────────────────────────────────────────────
 
-setup_config() {
-    CONFIG_DIR="$HOME/.config/whisperme"
-    CONFIG_FILE="$CONFIG_DIR/config.json"
-    mkdir -p "$CONFIG_DIR"
+CONFIG_DIR="$HOME/.config/whisperme"
+CONFIG_FILE="$CONFIG_DIR/config.json"
+mkdir -p "$CONFIG_DIR"
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    cp "$REPO_DIR/config/default_config.json" "$CONFIG_FILE"
+    success "Config created at $CONFIG_FILE"
+else
+    info "Config already exists at $CONFIG_FILE — not overwriting"
+fi
 
-    if [[ ! -f "$CONFIG_FILE" ]]; then
-        cp "$REPO_DIR/config/default_config.json" "$CONFIG_FILE"
-        success "Config created at $CONFIG_FILE"
-    else
-        info "Config already exists at $CONFIG_FILE — not overwriting"
-    fi
-}
+# ── 7. LaunchAgent ───────────────────────────────────────────────────────────
 
-print_permissions_reminder() {
-    echo ""
-    echo "=========================================="
-    echo "  Almost done! Grant these permissions:"
-    echo "=========================================="
-    echo ""
-    echo "  1. Microphone:"
-    echo "     System Settings → Privacy & Security → Microphone"
-    echo "     → Enable Terminal (or WhisperMe.app)"
-    echo ""
-    echo "  2. Accessibility:"
-    echo "     System Settings → Privacy & Security → Accessibility"
-    echo "     → Enable Terminal (or WhisperMe.app)"
-    echo ""
-}
+echo ""
+info "Installing LaunchAgent (auto-start on login)..."
+bash "$REPO_DIR/scripts/install_launchagent.sh"
 
-print_run_instructions() {
-    echo "=========================================="
-    echo "  Installation complete!"
-    echo "=========================================="
-    echo ""
-    echo "  Option A — Run once (Terminal required):"
-    echo "    cd $REPO_DIR"
-    echo "    source .venv/bin/activate"
-    echo "    python -m src.main"
-    echo ""
-    echo "  Option B — Run on login, no Terminal (recommended):"
-    echo "    bash scripts/install_launchagent.sh"
-    echo ""
-    echo "  Hotkey: Press Ctrl+Shift+Space to start/stop recording"
-    echo ""
-}
+# ── 8. Permissions reminder ──────────────────────────────────────────────────
 
-# ── Main ────────────────────────────────────────────────────────────────────
+PYTHON_BIN="$($REPO_DIR/.venv/bin/python -c 'import sys; print(sys.executable)')"
+PYTHON_NAME="$(basename "$PYTHON_BIN")"
 
-check_macos
-check_homebrew
-check_python
-check_ffmpeg
-check_ollama
-install_python_deps
-setup_config
-print_permissions_reminder
-print_run_instructions
+echo ""
+echo "  ╔══════════════════════════════════════════════════════════╗"
+echo "  ║           Two permissions required in macOS              ║"
+echo "  ╚══════════════════════════════════════════════════════════╝"
+echo ""
+echo "  Open System Settings → Privacy & Security and enable"
+echo "  '$PYTHON_NAME' in each of these two sections:"
+echo ""
+echo "  1. Accessibility      — lets WhisperMe type text into apps"
+echo "  2. Input Monitoring   — lets WhisperMe detect the hotkey"
+echo ""
+echo "  If '$PYTHON_NAME' isn't listed, toggle it off/on or restart"
+echo "  and macOS will prompt you automatically on first use."
+echo ""
+echo "  ╔══════════════════════════════════════════════════════════╗"
+echo "  ║  WhisperMe is running. Press Ctrl+Shift+Space to record. ║"
+echo "  ╚══════════════════════════════════════════════════════════╝"
+echo ""
+echo "  Hotkey:  Ctrl+Shift+Space (press to start, press again to stop)"
+echo "  Logs:    tail -f ~/Library/Logs/WhisperMe/whisperme-error.log"
+echo "  Uninstall: bash scripts/uninstall_launchagent.sh"
+echo ""
