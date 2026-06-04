@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch WhisperMe using the project's virtual environment.
+# Launch Tacet using the project's virtual environment.
 # Double-click this file in Finder, or add it to Login Items.
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"

@@ -1,4 +1,4 @@
-# WhisperMe — Claude Session Context
+# Tacet — Claude Session Context
 
 ## What This App Does
 macOS menubar dictation app: records audio → transcribes via mlx-whisper (Apple Silicon) → optionally polishes via LLM → inserts text at cursor.
@@ -58,15 +58,15 @@ Both must be enabled in System Settings → Privacy & Security for the app to wo
 bash scripts/install_launchagent.sh
 
 # Reload after code changes
-launchctl bootout "gui/$(id -u)" ~/Library/LaunchAgents/com.whisperme.app.plist 2>/dev/null; true
-launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.whisperme.app.plist
+launchctl bootout "gui/$(id -u)" ~/Library/LaunchAgents/com.tacet.app.plist 2>/dev/null; true
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.tacet.app.plist
 
 # Watch logs
-tail -f ~/Library/Logs/WhisperMe/whisperme-error.log
+tail -f ~/Library/Logs/Tacet/tacet-error.log
 ```
 
 ## Git
-- Remote: `https://github.com/jqrv6p8nmv-dev/whspr-me`
+- Remote: `https://github.com/jqrv6p8nmv-dev/tacet`
 - Dev branch: `claude/explain-codebase-mm2f2zzhmujeb9cy-sVI0D`
 
 ## Current Status

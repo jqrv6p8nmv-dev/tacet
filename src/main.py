@@ -1,5 +1,5 @@
 """
-WhisperMe — Entry point.
+Tacet — Entry point.
 
 Sets up logging, loads config, instantiates all components, and starts
 the rumps menubar application.
@@ -27,7 +27,7 @@ def main() -> None:
 
     _setup_logging(cfg_get(config, "log_level", default="info"))
     logger = logging.getLogger(__name__)
-    logger.info("WhisperMe starting…")
+    logger.info("Tacet starting…")
 
     # ------------------------------------------------------------------ #
     # 2. Instantiate components
@@ -57,7 +57,7 @@ def main() -> None:
     from .processing.pipeline import ProcessingPipeline
     proc_cfg = config.get("processing", {})
     dict_path_str = config.get(
-        "custom_dictionary_path", "~/.config/whisperme/custom_dictionary.json"
+        "custom_dictionary_path", "~/.config/tacet/custom_dictionary.json"
     )
     dictionary = CustomDictionary(path=Path(dict_path_str).expanduser())
     pipeline = ProcessingPipeline(
@@ -75,8 +75,8 @@ def main() -> None:
     overlay = StatusOverlay(position=ui_cfg.get("overlay_position", "bottom-center"))
 
     # Menubar app
-    from .ui.menubar import WhisperMeApp
-    app = WhisperMeApp()
+    from .ui.menubar import TacetApp
+    app = TacetApp()
     app.config = config
 
     # Hotkey listener — Fn key (hold-to-record) or combo (toggle)
@@ -132,13 +132,13 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     listener.start()
     logger.info(f"Hotkey registered: {listener.hotkey_str}")
-    logger.info(f"WhisperMe ready. Hotkey: {listener.hotkey_str}")
+    logger.info(f"Tacet ready. Hotkey: {listener.hotkey_str}")
 
     try:
         app.run()
     finally:
         listener.stop()
-        logger.info("WhisperMe exited.")
+        logger.info("Tacet exited.")
 
 
 if __name__ == "__main__":

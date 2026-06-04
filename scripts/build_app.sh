@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Build WhisperMe as a standalone macOS .app bundle using py2app.
+# Build Tacet as a standalone macOS .app bundle using py2app.
 #
 # Usage:
 #   bash scripts/build_app.sh
 #
-# After a successful build, the app is at dist/WhisperMe.app.
+# After a successful build, the app is at dist/Tacet.app.
 # Double-click it or drag it to /Applications to install.
 
 set -euo pipefail
@@ -53,14 +53,14 @@ rm -rf "$DIST_DIR" "$BUILD_DIR"
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 
-info "Building WhisperMe.app — this takes a few minutes on first run..."
+info "Building Tacet.app — this takes a few minutes on first run..."
 "$PYTHON" setup.py py2app 2>&1
 
-if [[ ! -d "$DIST_DIR/WhisperMe.app" ]]; then
-    error "Build failed — WhisperMe.app not found in $DIST_DIR"
+if [[ ! -d "$DIST_DIR/Tacet.app" ]]; then
+    error "Build failed — Tacet.app not found in $DIST_DIR"
 fi
 
-success "Build complete: $DIST_DIR/WhisperMe.app"
+success "Build complete: $DIST_DIR/Tacet.app"
 
 # ── Copy mlx + mlx_whisper into the bundle ───────────────────────────────────
 # py2app's collect_packagedirs uses imp.find_module, which crashes on mlx's
@@ -70,7 +70,7 @@ success "Build complete: $DIST_DIR/WhisperMe.app"
 VENV_SITE=$("$PYTHON" -c "import site; print(site.getsitepackages()[0])" 2>/dev/null || true)
 
 # Locate the python-versioned lib dir inside the app bundle
-BUNDLE_LIB="$DIST_DIR/WhisperMe.app/Contents/Resources/lib"
+BUNDLE_LIB="$DIST_DIR/Tacet.app/Contents/Resources/lib"
 BUNDLE_PY_LIB=$(ls -d "$BUNDLE_LIB"/python3.*/ 2>/dev/null | head -1)
 
 if [[ -z "$BUNDLE_PY_LIB" ]]; then
@@ -118,7 +118,7 @@ fi
 # cannot be distributed to other Macs without a paid Apple Developer account.
 
 info "Signing app (ad-hoc)..."
-if codesign --force --deep --sign - "$DIST_DIR/WhisperMe.app" 2>/dev/null; then
+if codesign --force --deep --sign - "$DIST_DIR/Tacet.app" 2>/dev/null; then
     success "Signed (ad-hoc)"
 else
     info "codesign not available — skipping signature"
@@ -128,13 +128,13 @@ fi
 
 echo ""
 echo "  ┌─────────────────────────────────────────────────────────┐"
-echo "  │  WhisperMe.app is ready.                                │"
+echo "  │  Tacet.app is ready.                                │"
 echo "  │                                                         │"
 echo "  │  To run now:                                            │"
-echo "  │    open $DIST_DIR/WhisperMe.app"
+echo "  │    open $DIST_DIR/Tacet.app"
 echo "  │                                                         │"
 echo "  │  To install system-wide:                                │"
-echo "  │    cp -r $DIST_DIR/WhisperMe.app /Applications/        │"
+echo "  │    cp -r $DIST_DIR/Tacet.app /Applications/        │"
 echo "  │                                                         │"
 echo "  │  First launch: grant Microphone + Accessibility access  │"
 echo "  │  in System Settings → Privacy & Security.              │"

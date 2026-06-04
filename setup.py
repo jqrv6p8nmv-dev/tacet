@@ -1,5 +1,5 @@
 """
-Setup script for WhisperMe — used exclusively by py2app to build the .app bundle.
+Setup script for Tacet — used exclusively by py2app to build the .app bundle.
 
 Build command:
     bash scripts/build_app.sh
@@ -45,13 +45,13 @@ OPTIONS = {
     "frameworks": _find_portaudio(),
     "plist": {
         "LSUIElement": True,
-        "CFBundleName": "WhisperMe",
-        "CFBundleDisplayName": "WhisperMe",
-        "CFBundleIdentifier": "com.whisperme.app",
+        "CFBundleName": "Tacet",
+        "CFBundleDisplayName": "Tacet",
+        "CFBundleIdentifier": "com.tacet.app",
         "CFBundleVersion": "0.1.0",
         "CFBundleShortVersionString": "0.1.0",
-        "NSMicrophoneUsageDescription": "WhisperMe needs microphone access to capture your speech.",
-        "NSAccessibilityUsageDescription": "WhisperMe needs Accessibility access to insert text and listen for hotkeys.",
+        "NSMicrophoneUsageDescription": "Tacet needs microphone access to capture your speech.",
+        "NSAccessibilityUsageDescription": "Tacet needs Accessibility access to insert text and listen for hotkeys.",
     },
     "packages": [
         "src",

@@ -28,7 +28,7 @@
     "overlay_size": "small",
     "show_waveform": false
   },
-  "custom_dictionary_path": "~/.config/whisperme/custom_dictionary.json",
+  "custom_dictionary_path": "~/.config/tacet/custom_dictionary.json",
   "clipboard_restore": true,
   "log_level": "info"
 }

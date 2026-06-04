@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Remove the WhisperMe LaunchAgent — stops the running instance and prevents
+# Remove the Tacet LaunchAgent — stops the running instance and prevents
 # it from starting on future logins.
 #
 # Usage: bash scripts/uninstall_launchagent.sh
 
 set -euo pipefail
 
-PLIST_LABEL="com.whisperme.app"
+PLIST_LABEL="com.tacet.app"
 PLIST_PATH="$HOME/Library/LaunchAgents/${PLIST_LABEL}.plist"
 
 info()    { echo "  [INFO]  $*"; }
@@ -14,11 +14,11 @@ success() { echo "  [✓]     $*"; }
 warn()    { echo "  [WARN]  $*"; }
 
 if launchctl list "$PLIST_LABEL" &>/dev/null 2>&1; then
-    info "Stopping WhisperMe..."
+    info "Stopping Tacet..."
     launchctl bootout "gui/$(id -u)" "$PLIST_PATH" 2>/dev/null || true
     success "Agent stopped"
 else
-    warn "WhisperMe agent was not running"
+    warn "Tacet agent was not running"
 fi
 
 if [[ -f "$PLIST_PATH" ]]; then
@@ -29,6 +29,6 @@ else
 fi
 
 echo ""
-echo "  WhisperMe will no longer start on login."
+echo "  Tacet will no longer start on login."
 echo "  To re-enable: bash scripts/install_launchagent.sh"
 echo ""

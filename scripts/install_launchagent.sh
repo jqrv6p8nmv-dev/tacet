@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install WhisperMe as a macOS LaunchAgent so it starts automatically on login
+# Install Tacet as a macOS LaunchAgent so it starts automatically on login
 # with no Terminal window.
 #
 # Usage: bash scripts/install_launchagent.sh
@@ -8,9 +8,9 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 VENV_PYTHON="$REPO_DIR/.venv/bin/python"
-PLIST_LABEL="com.whisperme.app"
+PLIST_LABEL="com.tacet.app"
 PLIST_DEST="$HOME/Library/LaunchAgents/${PLIST_LABEL}.plist"
-LOG_DIR="$HOME/Library/Logs/WhisperMe"
+LOG_DIR="$HOME/Library/Logs/Tacet"
 
 info()    { echo "  [INFO]  $*"; }
 success() { echo "  [✓]     $*"; }
@@ -30,7 +30,7 @@ fi
 # ── Stop any running instance ────────────────────────────────────────────────
 
 if launchctl list "$PLIST_LABEL" &>/dev/null 2>&1; then
-    info "Stopping existing WhisperMe agent..."
+    info "Stopping existing Tacet agent..."
     launchctl bootout "gui/$(id -u)" "$PLIST_DEST" 2>/dev/null || true
 fi
 
@@ -79,11 +79,11 @@ cat > "$PLIST_DEST" <<PLIST
     <key>ThrottleInterval</key>
     <integer>15</integer>
 
-    <!-- Logs (tail -f ~/Library/Logs/WhisperMe/whisperme.log to watch) -->
+    <!-- Logs (tail -f ~/Library/Logs/Tacet/tacet.log to watch) -->
     <key>StandardOutPath</key>
-    <string>${LOG_DIR}/whisperme.log</string>
+    <string>${LOG_DIR}/tacet.log</string>
     <key>StandardErrorPath</key>
-    <string>${LOG_DIR}/whisperme-error.log</string>
+    <string>${LOG_DIR}/tacet-error.log</string>
 
     <!-- Provide a sensible PATH so ffmpeg, ollama, etc. are found -->
     <key>EnvironmentVariables</key>
@@ -99,17 +99,17 @@ PLIST
 
 success "Plist written"
 
-# ── Load the agent (starts WhisperMe now + on every future login) ────────────
+# ── Load the agent (starts Tacet now + on every future login) ────────────
 
 info "Loading LaunchAgent..."
 launchctl bootstrap "gui/$(id -u)" "$PLIST_DEST"
-success "WhisperMe LaunchAgent loaded — it will start now and on every login"
+success "Tacet LaunchAgent loaded — it will start now and on every login"
 
 echo ""
-echo "  WhisperMe is starting in the menu bar."
+echo "  Tacet is starting in the menu bar."
 echo "  No Terminal window needed from now on."
 echo ""
-echo "  Logs:  tail -f $LOG_DIR/whisperme.log"
+echo "  Logs:  tail -f $LOG_DIR/tacet.log"
 echo "  Stop:  bash scripts/uninstall_launchagent.sh   (removes auto-start)"
-echo "         — or use 'Quit WhisperMe' in the menu bar (stops this session)"
+echo "         — or use 'Quit Tacet' in the menu bar (stops this session)"
 echo ""

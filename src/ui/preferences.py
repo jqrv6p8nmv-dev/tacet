@@ -19,7 +19,7 @@ def show_preferences(config: dict, on_save=None) -> None:
     import subprocess
     from pathlib import Path
 
-    config_path = Path("~/.config/whisperme/config.json").expanduser()
+    config_path = Path("~/.config/tacet/config.json").expanduser()
     if config_path.exists():
         subprocess.run(["open", str(config_path)])
         logger.info(f"Opened config file: {config_path}")

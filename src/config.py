@@ -1,8 +1,8 @@
 """
-Configuration management for WhisperMe.
+Configuration management for Tacet.
 
 Merges default config with user overrides stored at
-~/.config/whisperme/config.json.
+~/.config/tacet/config.json.
 """
 import json
 import logging
@@ -13,7 +13,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-CONFIG_DIR = Path("~/.config/whisperme").expanduser()
+CONFIG_DIR = Path("~/.config/tacet").expanduser()
 USER_CONFIG_PATH = CONFIG_DIR / "config.json"
 
 # When running as a py2app bundle, __file__ points inside a zip archive and

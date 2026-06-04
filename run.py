@@ -1,5 +1,5 @@
 """
-WhisperMe — py2app application entry point.
+Tacet — py2app application entry point.
 
 This script is the entry point for the standalone .app bundle built by py2app.
 It must live at the project root (not inside a package) so that:

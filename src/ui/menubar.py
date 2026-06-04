@@ -2,7 +2,7 @@
 macOS menubar application using rumps.
 
 Provides the system tray icon, menu items, and wires together all
-WhisperMe components into a single cohesive app.
+Tacet components into a single cohesive app.
 """
 import json
 import logging
@@ -22,7 +22,7 @@ ICON_IDLE = "🎙"
 ICON_RECORDING = "🔴"
 ICON_PROCESSING = "⏳"
 
-CONFIG_DIR = Path("~/.config/whisperme").expanduser()
+CONFIG_DIR = Path("~/.config/tacet").expanduser()
 CONFIG_PATH = CONFIG_DIR / "config.json"
 
 # Same frozen-app path logic as config.py — __file__ is unusable inside a zip.
@@ -55,9 +55,9 @@ def _save_config(config: dict) -> None:
         json.dump(config, f, indent=2)
 
 
-class WhisperMeApp(rumps.App):
+class TacetApp(rumps.App):
     """
-    Main WhisperMe menubar application.
+    Main Tacet menubar application.
 
     Integrates audio capture, transcription, post-processing, and text
     insertion into a workflow triggered by the Fn key (hold-to-record)
@@ -66,9 +66,9 @@ class WhisperMeApp(rumps.App):
 
     def __init__(self):
         super().__init__(
-            name="WhisperMe",
+            name="Tacet",
             title=ICON_IDLE,
-            quit_button="Quit WhisperMe",
+            quit_button="Quit Tacet",
         )
         self.config = _load_config()
         self._recording = False
@@ -94,7 +94,7 @@ class WhisperMeApp(rumps.App):
                 callback=self._toggle_llm_cleanup,
             ),
             rumps.separator,
-            rumps.MenuItem("About WhisperMe", callback=self._show_about),
+            rumps.MenuItem("About Tacet", callback=self._show_about),
         ]
 
     # ------------------------------------------------------------------
@@ -275,7 +275,7 @@ class WhisperMeApp(rumps.App):
 
     def _show_about(self, _sender) -> None:
         rumps.alert(
-            title="WhisperMe",
+            title="Tacet",
             message=(
                 "Free, local-first voice dictation for macOS.\n\n"
                 "Hold the Fn key to record. Release to transcribe.\n\n"

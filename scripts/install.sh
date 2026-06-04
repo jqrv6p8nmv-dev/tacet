@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# WhisperMe — one-command installer for macOS (Apple Silicon)
+# Tacet — one-command installer for macOS (Apple Silicon)
 #
 # Usage:
-#   git clone https://github.com/jqrv6p8nmv-dev/whspr-me
-#   cd whspr-me
+#   git clone https://github.com/jqrv6p8nmv-dev/tacet
+#   cd tacet
 #   bash scripts/install.sh
 
 set -euo pipefail
@@ -19,7 +19,7 @@ error()   { echo "  [ERROR] $*" >&2; exit 1; }
 
 echo ""
 echo "  ╔══════════════════════════════════╗"
-echo "  ║       WhisperMe Installer        ║"
+echo "  ║       Tacet Installer        ║"
 echo "  ║  Local voice dictation for macOS ║"
 echo "  ╚══════════════════════════════════╝"
 echo ""
@@ -27,17 +27,17 @@ echo ""
 # ── 1. Platform checks ───────────────────────────────────────────────────────
 
 if [[ "$(uname)" != "Darwin" ]]; then
-    error "WhisperMe requires macOS."
+    error "Tacet requires macOS."
 fi
 
 if [[ "$(uname -m)" != "arm64" ]]; then
-    error "WhisperMe requires Apple Silicon (M1/M2/M3/M4). Intel Macs are not supported."
+    error "Tacet requires Apple Silicon (M1/M2/M3/M4). Intel Macs are not supported."
 fi
 
 OS_VER=$(sw_vers -productVersion)
 MAJOR=$(echo "$OS_VER" | cut -d. -f1)
 if [[ "$MAJOR" -lt 13 ]]; then
-    error "WhisperMe requires macOS Ventura (13) or later. Detected: $OS_VER"
+    error "Tacet requires macOS Ventura (13) or later. Detected: $OS_VER"
 fi
 success "macOS $OS_VER on Apple Silicon"
 
@@ -99,7 +99,7 @@ fi
 
 # ── 6. User config ───────────────────────────────────────────────────────────
 
-CONFIG_DIR="$HOME/.config/whisperme"
+CONFIG_DIR="$HOME/.config/tacet"
 CONFIG_FILE="$CONFIG_DIR/config.json"
 mkdir -p "$CONFIG_DIR"
 if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -128,17 +128,17 @@ echo ""
 echo "  Open System Settings → Privacy & Security and enable"
 echo "  '$PYTHON_NAME' in each of these two sections:"
 echo ""
-echo "  1. Accessibility      — lets WhisperMe type text into apps"
-echo "  2. Input Monitoring   — lets WhisperMe detect the hotkey"
+echo "  1. Accessibility      — lets Tacet type text into apps"
+echo "  2. Input Monitoring   — lets Tacet detect the hotkey"
 echo ""
 echo "  If '$PYTHON_NAME' isn't listed, toggle it off/on or restart"
 echo "  and macOS will prompt you automatically on first use."
 echo ""
 echo "  ╔══════════════════════════════════════════════════════════╗"
-echo "  ║  WhisperMe is running. Press Ctrl+Shift+Space to record. ║"
+echo "  ║  Tacet is running. Press Ctrl+Shift+Space to record. ║"
 echo "  ╚══════════════════════════════════════════════════════════╝"
 echo ""
 echo "  Hotkey:  Ctrl+Shift+Space (press to start, press again to stop)"
-echo "  Logs:    tail -f ~/Library/Logs/WhisperMe/whisperme-error.log"
+echo "  Logs:    tail -f ~/Library/Logs/Tacet/tacet-error.log"
 echo "  Uninstall: bash scripts/uninstall_launchagent.sh"
 echo ""

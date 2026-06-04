@@ -1,4 +1,4 @@
-# WhisperMe
+# Tacet
 
 Free, local voice dictation for macOS. Press a hotkey, speak naturally, get clean text inserted into any app — no cloud, no subscription, nothing phoning home.
 
@@ -15,25 +15,25 @@ Inspired by Wispr Flow. All processing runs on-device using Apple Silicon-optimi
 ## Install
 
 ```bash
-git clone https://github.com/jqrv6p8nmv-dev/whspr-me.git
-cd whspr-me
+git clone https://github.com/jqrv6p8nmv-dev/tacet.git
+cd tacet
 bash scripts/install.sh
 ```
 
-The installer handles everything: Python, virtual environment, dependencies, and the LaunchAgent that starts WhisperMe automatically on every login.
+The installer handles everything: Python, virtual environment, dependencies, and the LaunchAgent that starts Tacet automatically on every login.
 
 ## Grant permissions (required)
 
 After installing, open **System Settings → Privacy & Security** and enable `python3.X` in:
 
-1. **Accessibility** — lets WhisperMe type text into other apps
-2. **Input Monitoring** — lets WhisperMe detect the global hotkey
+1. **Accessibility** — lets Tacet type text into other apps
+2. **Input Monitoring** — lets Tacet detect the global hotkey
 
 macOS will prompt you automatically on first use. If not, add `python3.X` manually using the `+` button.
 
 ## Usage
 
-WhisperMe runs as a menubar app. Look for 🎙 in your menu bar.
+Tacet runs as a menubar app. Look for 🎙 in your menu bar.
 
 | Action | Result |
 |--------|--------|
@@ -45,7 +45,7 @@ Transcribed text is inserted at the cursor in whatever app is focused.
 
 ## Configuration
 
-User config lives at `~/.config/whisperme/config.json`. All available options are in `config/default_config.json`.
+User config lives at `~/.config/tacet/config.json`. All available options are in `config/default_config.json`.
 
 Key settings:
 
@@ -93,17 +93,17 @@ For better accuracy at the cost of speed, switch to `mlx-community/whisper-small
 bash scripts/uninstall_launchagent.sh
 ```
 
-This stops WhisperMe and removes the auto-start entry. To fully remove, delete the `whspr-me` folder and `~/.config/whisperme/`.
+This stops Tacet and removes the auto-start entry. To fully remove, delete the `tacet` folder and `~/.config/tacet/`.
 
 ## Logs
 
 ```bash
-tail -f ~/Library/Logs/WhisperMe/whisperme-error.log
+tail -f ~/Library/Logs/Tacet/tacet-error.log
 ```
 
 ## Reload after config changes
 
 ```bash
-launchctl bootout "gui/$(id -u)" ~/Library/LaunchAgents/com.whisperme.app.plist 2>/dev/null; true
-launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.whisperme.app.plist
+launchctl bootout "gui/$(id -u)" ~/Library/LaunchAgents/com.tacet.app.plist 2>/dev/null; true
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.tacet.app.plist
 ```

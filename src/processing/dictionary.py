@@ -1,7 +1,7 @@
 """
 Custom dictionary for user-defined word replacements.
 
-Loaded from ~/.config/whisperme/custom_dictionary.json.
+Loaded from ~/.config/tacet/custom_dictionary.json.
 Supports exact-match and case-insensitive replacements.
 """
 import json
@@ -13,7 +13,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DICT_PATH = Path("~/.config/whisperme/custom_dictionary.json").expanduser()
+DEFAULT_DICT_PATH = Path("~/.config/tacet/custom_dictionary.json").expanduser()
 
 
 class CustomDictionary:
