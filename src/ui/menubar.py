@@ -85,6 +85,10 @@ class TacetApp(rumps.App):
 
     def _build_menu(self) -> None:
         """Build the menubar dropdown menu."""
+        launch_at_login_title = (
+            "Launch at Login: ON" if self._login_item_enabled()
+            else "Launch at Login: OFF"
+        )
         self.menu = [
             rumps.MenuItem("Start Recording", callback=self._toggle_recording),
             rumps.separator,
@@ -93,6 +97,7 @@ class TacetApp(rumps.App):
                 else "AI Cleanup: OFF",
                 callback=self._toggle_llm_cleanup,
             ),
+            rumps.MenuItem(launch_at_login_title, callback=self._toggle_login_item),
             rumps.separator,
             rumps.MenuItem("About Tacet", callback=self._show_about),
         ]
@@ -262,6 +267,37 @@ class TacetApp(rumps.App):
     # ------------------------------------------------------------------
     # Menu callbacks
     # ------------------------------------------------------------------
+
+    def _login_item_enabled(self) -> bool:
+        try:
+            import ServiceManagement
+            svc = ServiceManagement.SMAppService.mainApp()
+            return svc.status() == 1  # SMAppServiceStatusEnabled
+        except Exception:
+            return False
+
+    def _toggle_login_item(self, sender) -> None:
+        try:
+            import ServiceManagement
+            svc = ServiceManagement.SMAppService.mainApp()
+            if svc.status() == 1:  # currently enabled → disable
+                svc.unregisterAndReturnError_(None)
+                sender.title = "Launch at Login: OFF"
+                logger.info("Removed from Login Items")
+            else:
+                svc.registerAndReturnError_(None)
+                sender.title = "Launch at Login: ON"
+                logger.info("Added to Login Items")
+        except Exception:
+            logger.debug("SMAppService unavailable — not running as a .app bundle", exc_info=True)
+            rumps.alert(
+                title="Launch at Login",
+                message=(
+                    "This feature requires Tacet to be installed as a .app bundle.\n\n"
+                    "If running from the install script, use the LaunchAgent instead:\n"
+                    "bash scripts/install_launchagent.sh"
+                ),
+            )
 
     def _toggle_llm_cleanup(self, sender) -> None:
         proc = self.config.setdefault("processing", {})
