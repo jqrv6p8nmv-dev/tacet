@@ -88,6 +88,7 @@ PLIST
 cat > "$APP_DIR/Contents/MacOS/tacet" << 'LAUNCHER'
 #!/bin/bash
 RESOURCES="$(cd "$(dirname "$0")/../Resources" && pwd)"
+cd "$RESOURCES"
 exec "$RESOURCES/.venv/bin/python3" -m src.main
 LAUNCHER
 chmod +x "$APP_DIR/Contents/MacOS/tacet"
