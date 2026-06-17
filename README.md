@@ -12,7 +12,13 @@ Inspired by Wispr Flow. All processing runs on-device using Apple Silicon-optimi
 - macOS Ventura 13 or later
 - [Homebrew](https://brew.sh) (the installer will set it up if missing)
 
-## Install
+## Install — DMG (recommended for most users)
+
+1. Download `Tacet-0.1.0.dmg` from [Releases](https://github.com/jqrv6p8nmv-dev/tacet/releases)
+2. Open the DMG and drag **Tacet.app** to `/Applications`
+3. **Right-click Tacet.app → Open → Open** (required once to bypass Gatekeeper — Tacet is not yet signed with an Apple Developer certificate)
+
+## Install — from source (developers)
 
 ```bash
 git clone https://github.com/jqrv6p8nmv-dev/tacet.git
@@ -24,12 +30,19 @@ The installer handles everything: Python, virtual environment, dependencies, and
 
 ## Grant permissions (required)
 
-After installing, open **System Settings → Privacy & Security** and enable `python3.X` in:
+Tacet needs two permissions to function. macOS will prompt for **Microphone** automatically on first launch. The other two require a one-time manual step:
+
+Open **System Settings → Privacy & Security** and enable `python3` under:
 
 1. **Accessibility** — lets Tacet type text into other apps
 2. **Input Monitoring** — lets Tacet detect the global hotkey
 
-macOS will prompt you automatically on first use. If not, add `python3.X` manually using the `+` button.
+For each: click `+`, press `Cmd+Shift+G` in the file picker, and paste:
+```
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python
+```
+
+Then restart Tacet. These are one-time steps — macOS remembers them across reboots.
 
 ## Usage
 
@@ -89,21 +102,15 @@ For better accuracy at the cost of speed, switch to `mlx-community/whisper-small
 
 ## Uninstall
 
+Delete `/Applications/Tacet.app` and `~/.config/tacet/`.
+
+If you installed via the LaunchAgent path:
 ```bash
 bash scripts/uninstall_launchagent.sh
 ```
-
-This stops Tacet and removes the auto-start entry. To fully remove, delete the `tacet` folder and `~/.config/tacet/`.
 
 ## Logs
 
 ```bash
 tail -f ~/Library/Logs/Tacet/tacet-error.log
-```
-
-## Reload after config changes
-
-```bash
-launchctl bootout "gui/$(id -u)" ~/Library/LaunchAgents/com.tacet.app.plist 2>/dev/null; true
-launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.tacet.app.plist
 ```
