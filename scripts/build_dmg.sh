@@ -82,14 +82,17 @@ cat > "$APP_DIR/Contents/Info.plist" << PLIST
 </plist>
 PLIST
 
-# Launcher — shell script that exec's Python from the bundled venv.
-# exec replaces the shell with Python so it becomes the main app process,
-# keeping macOS bundle identity intact for TCC (permission) prompts.
+# Launcher — shell script that forks Python from the bundled venv.
+# Intentionally NOT using exec: keeping the bash process alive at Contents/MacOS/tacet
+# means the OS (runningboardd/LaunchServices) and TCC's responsible-process attribution
+# continue to see this PID as part of com.tacet.app, so permission prompts say "Tacet"
+# rather than "Python" (Homebrew's framework binary, which is what venv/bin/python3
+# symlinks to and what exec would replace this process image with).
 cat > "$APP_DIR/Contents/MacOS/tacet" << 'LAUNCHER'
 #!/bin/bash
 RESOURCES="$(cd "$(dirname "$0")/../Resources" && pwd)"
 cd "$RESOURCES"
-exec "$RESOURCES/.venv/bin/python3" -m src.main
+"$RESOURCES/.venv/bin/python3" -m src.main
 LAUNCHER
 chmod +x "$APP_DIR/Contents/MacOS/tacet"
 
