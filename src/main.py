@@ -26,6 +26,7 @@ def _setup_logging(level: str = "info") -> None:
             logging.StreamHandler(),
             logging.FileHandler(log_file, encoding="utf-8"),
         ],
+        force=True,
     )
 
 
