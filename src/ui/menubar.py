@@ -277,27 +277,29 @@ class TacetApp(rumps.App):
             return False
 
     def _toggle_login_item(self, sender) -> None:
-        try:
-            import ServiceManagement
-            svc = ServiceManagement.SMAppService.mainApp()
-            if svc.status() == 1:  # currently enabled → disable
-                svc.unregisterAndReturnError_(None)
-                sender.title = "Launch at Login: OFF"
-                logger.info("Removed from Login Items")
-            else:
-                svc.registerAndReturnError_(None)
-                sender.title = "Launch at Login: ON"
-                logger.info("Added to Login Items")
-        except Exception:
-            logger.debug("SMAppService unavailable — not running as a .app bundle", exc_info=True)
-            rumps.alert(
-                title="Launch at Login",
-                message=(
-                    "This feature requires Tacet to be installed as a .app bundle.\n\n"
-                    "If running from the install script, use the LaunchAgent instead:\n"
-                    "bash scripts/install_launchagent.sh"
-                ),
-            )
+        import threading
+        import AppKit
+
+        def _do_toggle():
+            try:
+                import ServiceManagement
+                svc = ServiceManagement.SMAppService.mainApp()
+                if svc.status() == 1:
+                    svc.unregisterAndReturnError_(None)
+                    new_title = "Launch at Login: OFF"
+                    logger.info("Removed from Login Items")
+                else:
+                    svc.registerAndReturnError_(None)
+                    new_title = "Launch at Login: ON"
+                    logger.info("Added to Login Items")
+
+                def _update():
+                    sender.title = new_title
+                AppKit.NSOperationQueue.mainQueue().addOperationWithBlock_(_update)
+            except Exception:
+                logger.warning("SMAppService toggle failed", exc_info=True)
+
+        threading.Thread(target=_do_toggle, daemon=True).start()
 
     def _toggle_llm_cleanup(self, sender) -> None:
         proc = self.config.setdefault("processing", {})
