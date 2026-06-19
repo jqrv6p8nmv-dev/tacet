@@ -71,12 +71,13 @@ int main(void) {
     snprintf(resources, sizeof(resources), "%s/Resources", real_self);
     snprintf(python,    sizeof(python),    "%s/.venv/bin/python3", resources);
 
-    /* Trigger the Accessibility permission prompt branded as "Tacet".
-     * We poll until granted (up to 60s) BEFORE forking python3 because
-     * macOS does not propagate Accessibility grants to already-running
-     * processes for CGEventPost — the C binary must hold the grant at
-     * the time it calls do_paste(), which requires starting python3 only
-     * after the grant is confirmed. */
+    /* Accessibility / CGEventPost:
+     * macOS initialises each process's EventTap trust state at launch from TCC.
+     * A grant given to an already-running process is not picked up — CGEventPost
+     * silently fails until the process restarts.  Fix: if we are not yet trusted,
+     * show the prompt, poll until the user grants it, then re-exec ourselves so
+     * the NEW process image starts with the grant already in TCC and EventTap
+     * initialises it as trusted from the very beginning. */
     if (!AXIsProcessTrusted()) {
         CFStringRef key = kAXTrustedCheckOptionPrompt;
         CFDictionaryRef opts = CFDictionaryCreate(
@@ -93,6 +94,15 @@ int main(void) {
         for (int i = 0; i < 600; i++) {
             if (AXIsProcessTrusted()) break;
             usleep(100000);
+        }
+
+        /* Re-exec ourselves so the new process context is initialised as
+         * trusted — same binary, same path, but a fresh EventTap state. */
+        if (AXIsProcessTrusted()) {
+            char *restart_argv[] = { real_self, NULL };
+            execv(real_self, restart_argv);
+            /* execv only returns on failure — fall through and continue */
+            perror("[tacet] re-exec after accessibility grant");
         }
     }
 
