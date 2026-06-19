@@ -58,6 +58,10 @@ int main(void) {
         return 1;
     }
 
+    /* Save binary path before we strip it down for the resources path */
+    char tacet_binary[PATH_MAX];
+    strlcpy(tacet_binary, real_self, sizeof(tacet_binary));
+
     /* real_self = .../Tacet.app/Contents/MacOS/tacet
      * Strip filename → MacOS dir, strip MacOS → Contents dir */
     char *slash = strrchr(real_self, '/');
@@ -99,8 +103,8 @@ int main(void) {
         /* Re-exec ourselves so the new process context is initialised as
          * trusted — same binary, same path, but a fresh EventTap state. */
         if (AXIsProcessTrusted()) {
-            char *restart_argv[] = { real_self, NULL };
-            execv(real_self, restart_argv);
+            char *restart_argv[] = { tacet_binary, NULL };
+            execv(tacet_binary, restart_argv);
             /* execv only returns on failure — fall through and continue */
             perror("[tacet] re-exec after accessibility grant");
         }
