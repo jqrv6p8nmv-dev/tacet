@@ -82,18 +82,15 @@ cat > "$APP_DIR/Contents/Info.plist" << PLIST
 </plist>
 PLIST
 
-# Launcher — shell script that forks Python from the bundled venv.
-# Intentionally NOT using exec: keeping the bash process alive at Contents/MacOS/tacet
-# means the OS (runningboardd/LaunchServices) and TCC's responsible-process attribution
-# continue to see this PID as part of com.tacet.app, so permission prompts say "Tacet"
-# rather than "Python" (Homebrew's framework binary, which is what venv/bin/python3
-# symlinks to and what exec would replace this process image with).
-cat > "$APP_DIR/Contents/MacOS/tacet" << 'LAUNCHER'
-#!/bin/bash
-RESOURCES="$(cd "$(dirname "$0")/../Resources" && pwd)"
-cd "$RESOURCES"
-"$RESOURCES/.venv/bin/python3" -m src.main
-LAUNCHER
+# Compile the native launcher — a proper compiled binary at Contents/MacOS/tacet
+# means macOS TCC attributes Accessibility/Input Monitoring prompts to "Tacet"
+# (from the bundle's Info.plist) rather than to python3 / Python.framework.
+info "Compiling native launcher..."
+clang -o "$APP_DIR/Contents/MacOS/tacet" \
+    "$REPO_DIR/launcher/tacet_launcher.c" \
+    -framework ApplicationServices \
+    -framework CoreFoundation \
+    || error "clang failed — ensure Xcode Command Line Tools are installed (xcode-select --install)"
 chmod +x "$APP_DIR/Contents/MacOS/tacet"
 
 # Copy Python source and default config
