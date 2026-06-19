@@ -11,10 +11,21 @@ from pathlib import Path
 
 def _setup_logging(level: str = "info") -> None:
     log_level = getattr(logging, level.upper(), logging.INFO)
+    log_dir = Path("~/Library/Logs/Tacet").expanduser()
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "tacet.log"
+
+    fmt = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    datefmt = "%H:%M:%S"
+
     logging.basicConfig(
         level=log_level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%H:%M:%S",
+        format=fmt,
+        datefmt=datefmt,
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(log_file, encoding="utf-8"),
+        ],
     )
 
 
