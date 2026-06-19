@@ -72,18 +72,29 @@ int main(void) {
     snprintf(python,    sizeof(python),    "%s/.venv/bin/python3", resources);
 
     /* Trigger the Accessibility permission prompt branded as "Tacet".
-     * If already granted this returns immediately; if not, macOS shows
-     * "Tacet wants to control this computer" — user clicks Allow, done. */
-    CFStringRef key = kAXTrustedCheckOptionPrompt;
-    CFDictionaryRef opts = CFDictionaryCreate(
-        NULL,
-        (const void **)&key, (const void **)&kCFBooleanTrue,
-        1,
-        &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks
-    );
-    AXIsProcessTrustedWithOptions(opts);
-    CFRelease(opts);
+     * We poll until granted (up to 60s) BEFORE forking python3 because
+     * macOS does not propagate Accessibility grants to already-running
+     * processes for CGEventPost — the C binary must hold the grant at
+     * the time it calls do_paste(), which requires starting python3 only
+     * after the grant is confirmed. */
+    if (!AXIsProcessTrusted()) {
+        CFStringRef key = kAXTrustedCheckOptionPrompt;
+        CFDictionaryRef opts = CFDictionaryCreate(
+            NULL,
+            (const void **)&key, (const void **)&kCFBooleanTrue,
+            1,
+            &kCFTypeDictionaryKeyCallBacks,
+            &kCFTypeDictionaryValueCallBacks
+        );
+        AXIsProcessTrustedWithOptions(opts);
+        CFRelease(opts);
+
+        /* Wait for user to enable in System Settings (600 × 100ms = 60s) */
+        for (int i = 0; i < 600; i++) {
+            if (AXIsProcessTrusted()) break;
+            usleep(100000);
+        }
+    }
 
     /* Create the paste pipe.
      * Python3 writes 'P' → parent calls do_paste() with our Accessibility grant.
