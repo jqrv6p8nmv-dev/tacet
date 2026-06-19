@@ -110,9 +110,8 @@ def main() -> None:
     from .insertion.paste import check_accessibility_permission
     if not check_accessibility_permission():
         logger.warning(
-            "AXIsProcessTrusted() returned False — text insertion may not work. "
-            "Grant Accessibility access to python3.14 in System Settings → "
-            "Privacy & Security → Accessibility."
+            "Accessibility not granted — text insertion will not work. "
+            "Grant Accessibility access in System Settings → Privacy & Security → Accessibility."
         )
 
     # ------------------------------------------------------------------ #
