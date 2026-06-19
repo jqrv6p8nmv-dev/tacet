@@ -5,6 +5,9 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <mach-o/dyld.h>
+#include <dlfcn.h>
+#include <objc/runtime.h>
+#include <objc/message.h>
 #include <ApplicationServices/ApplicationServices.h>
 
 /*
@@ -16,30 +19,37 @@
  *
  * Steps:
  *   1. Resolve Contents/Resources from our own path
- *   2. Trigger the Accessibility permission prompt as "Tacet" (non-blocking)
- *   3. Create a paste pipe and fork python3 immediately — no waiting
- *   4. Paste pump: on each 'P' signal from python3, wait briefly for
- *      Accessibility to propagate in TCC then call do_paste() via CGEventPost
- *   5. When the pipe closes (python3 exits), waitpid and exit
- *
- * Why check at paste time rather than at startup:
- *   macOS TCC propagation after a System Settings grant can take 10-40s.
- *   Blocking python3 startup on that wait delays the mic permission dialog
- *   by the same amount. Instead we fork python3 immediately (mic dialog
- *   fires within ~2s), and wait for Accessibility only when the user
- *   actually attempts their first paste — by which point they have already
- *   spent time granting both permissions and TCC has had time to settle.
+ *   2. Trigger the Accessibility prompt as "Tacet" (non-blocking)
+ *   3. Trigger the Microphone prompt as "Tacet" via AVFoundation
+ *      — both dialogs appear within the first 2 seconds of launch
+ *   4. Poll until Accessibility is confirmed (macOS TCC propagation
+ *      takes 30-50s; the user spends this time responding to the dialogs)
+ *   5. Fork python3; by now mic is already granted so no second dialog
+ *   6. Pump paste signals from python3 via CGEventPost
  */
 
-/* Simulate Cmd+V via CGEventPost — requires Accessibility on *this* process */
-static void do_paste(void) {
-    /* If not yet trusted, wait up to 30s for TCC to propagate the grant.
-     * This covers the rare case where the user dictates very quickly after
-     * granting Accessibility and TCC hasn't settled yet. */
-    for (int i = 0; i < 300 && !AXIsProcessTrusted(); i++) {
-        usleep(100000); /* 100ms */
-    }
+/* Trigger "Tacet would like to access the Microphone" dialog via the
+ * Objective-C runtime so it fires immediately alongside the Accessibility
+ * prompt, rather than 40+ seconds later when python3 finally starts. */
+static void trigger_mic_permission(void) {
+    void *av = dlopen(
+        "/System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation",
+        RTLD_LAZY | RTLD_LOCAL
+    );
+    if (!av) return;
 
+    Class cls = objc_getClass("AVCaptureDevice");
+    id *audioType = (id *)dlsym(av, "AVMediaTypeAudio");
+    if (cls && audioType && *audioType) {
+        SEL sel = sel_registerName("requestAccessForMediaType:completionHandler:");
+        ((void (*)(id, SEL, id, id))objc_msgSend)((id)cls, sel, *audioType, nil);
+    }
+    dlclose(av);
+}
+
+/* Simulate Cmd+V via CGEventPost — requires Accessibility on *this* process.
+ * We only reach here after AXIsProcessTrusted() confirmed True, so no wait. */
+static void do_paste(void) {
     CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
     if (!src) return;
 
@@ -85,9 +95,10 @@ int main(void) {
     snprintf(resources, sizeof(resources), "%s/Resources", real_self);
     snprintf(python,    sizeof(python),    "%s/.venv/bin/python3", resources);
 
-    /* Trigger the Accessibility permission prompt branded as "Tacet".
-     * Non-blocking — we do NOT wait here. python3 forks immediately so the
-     * mic dialog fires quickly. Accessibility is checked at paste time. */
+    /* Trigger both permission dialogs immediately at launch.
+     * Accessibility: shown by AXIsProcessTrustedWithOptions (non-blocking).
+     * Microphone: shown by AVCaptureDevice via the ObjC runtime (non-blocking).
+     * Both are attributed to "Tacet" via the bundle's Info.plist. */
     if (!AXIsProcessTrusted()) {
         CFStringRef key = kAXTrustedCheckOptionPrompt;
         CFDictionaryRef opts = CFDictionaryCreate(
@@ -99,6 +110,16 @@ int main(void) {
         );
         AXIsProcessTrustedWithOptions(opts);
         CFRelease(opts);
+
+        trigger_mic_permission();
+
+        /* Poll until Accessibility is confirmed in TCC (up to 120s).
+         * macOS TCC propagation is slow (30-50s); the user spends this
+         * time responding to the two dialogs that just appeared. */
+        for (int i = 0; i < 1200; i++) {
+            if (AXIsProcessTrusted()) break;
+            usleep(100000); /* 100ms */
+        }
     }
 
     /* Create the paste pipe.

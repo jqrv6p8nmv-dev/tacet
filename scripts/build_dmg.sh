@@ -90,6 +90,7 @@ clang -o "$APP_DIR/Contents/MacOS/tacet" \
     "$REPO_DIR/launcher/tacet_launcher.c" \
     -framework ApplicationServices \
     -framework CoreFoundation \
+    -lobjc \
     || error "clang failed — ensure Xcode Command Line Tools are installed (xcode-select --install)"
 chmod +x "$APP_DIR/Contents/MacOS/tacet"
 
