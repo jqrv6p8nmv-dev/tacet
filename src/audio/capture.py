@@ -52,25 +52,6 @@ import sounddevice as sd  # noqa: E402 — must come after the patch above
 logger = logging.getLogger(__name__)
 
 
-def request_mic_permission() -> None:
-    """Open and immediately close a mic stream to trigger the TCC permission dialog.
-
-    Without this, macOS only prompts for microphone access on the first recording
-    attempt (mid-flow). Calling this at startup means the dialog appears during
-    launch so permission is granted before the user's first dictation.
-    """
-    try:
-        stream = sd.InputStream(
-            samplerate=SAMPLE_RATE, channels=CHANNELS, dtype=DTYPE, blocksize=CHUNK_SIZE
-        )
-        stream.start()
-        time.sleep(0.1)
-        stream.stop()
-        stream.close()
-        logger.debug("Microphone permission check complete")
-    except Exception:
-        logger.debug("Microphone permission check failed (may be denied)", exc_info=True)
-
 SAMPLE_RATE = 16000
 CHANNELS = 1
 DTYPE = np.float32

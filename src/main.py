@@ -99,15 +99,28 @@ def main() -> None:
     )
 
     # ------------------------------------------------------------------ #
-    # 3. Warm up Whisper and trigger mic permission dialog at startup
+    # 3. Warm up Whisper in background so first transcription is instant
     # ------------------------------------------------------------------ #
     import threading
-    from .audio.capture import request_mic_permission
     threading.Thread(target=whisper_engine.warm_up, daemon=True).start()
-    threading.Thread(target=request_mic_permission, daemon=True).start()
 
     # ------------------------------------------------------------------ #
-    # 4. Check permissions (log only — do not block startup with a dialog)
+    # 4a. Request microphone permission at startup via AVFoundation so the
+    #     dialog appears during launch, not mid-flow on first recording.
+    # ------------------------------------------------------------------ #
+    try:
+        import AVFoundation
+        AVFoundation.AVCaptureDevice.requestAccessForMediaType_completionHandler_(
+            AVFoundation.AVMediaTypeAudio,
+            lambda granted: logger.info(
+                "Microphone access granted" if granted else "Microphone access denied"
+            ),
+        )
+    except Exception:
+        logger.debug("AVFoundation mic permission request unavailable", exc_info=True)
+
+    # ------------------------------------------------------------------ #
+    # 4b. Check Accessibility (log only — do not block startup with a dialog)
     # ------------------------------------------------------------------ #
     from .insertion.paste import check_accessibility_permission
     if not check_accessibility_permission():
