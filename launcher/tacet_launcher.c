@@ -16,16 +16,30 @@
  *
  * Steps:
  *   1. Resolve Contents/Resources from our own path
- *   2. Trigger the Accessibility permission prompt as "Tacet"
- *   3. Create a paste pipe: python3 writes 'P' to signal "do Cmd+V now"
- *   4. Fork python3 from the bundled venv; pass write-fd via TACET_PASTE_FD
- *   5. Parent stays alive pumping paste requests via CGEventPost (we have
- *      Accessibility — python3's Python.framework identity does not)
- *   6. When the pipe closes (python3 exits), waitpid and exit
+ *   2. Trigger the Accessibility permission prompt as "Tacet" (non-blocking)
+ *   3. Create a paste pipe and fork python3 immediately — no waiting
+ *   4. Paste pump: on each 'P' signal from python3, wait briefly for
+ *      Accessibility to propagate in TCC then call do_paste() via CGEventPost
+ *   5. When the pipe closes (python3 exits), waitpid and exit
+ *
+ * Why check at paste time rather than at startup:
+ *   macOS TCC propagation after a System Settings grant can take 10-40s.
+ *   Blocking python3 startup on that wait delays the mic permission dialog
+ *   by the same amount. Instead we fork python3 immediately (mic dialog
+ *   fires within ~2s), and wait for Accessibility only when the user
+ *   actually attempts their first paste — by which point they have already
+ *   spent time granting both permissions and TCC has had time to settle.
  */
 
 /* Simulate Cmd+V via CGEventPost — requires Accessibility on *this* process */
 static void do_paste(void) {
+    /* If not yet trusted, wait up to 30s for TCC to propagate the grant.
+     * This covers the rare case where the user dictates very quickly after
+     * granting Accessibility and TCC hasn't settled yet. */
+    for (int i = 0; i < 300 && !AXIsProcessTrusted(); i++) {
+        usleep(100000); /* 100ms */
+    }
+
     CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
     if (!src) return;
 
@@ -58,10 +72,6 @@ int main(void) {
         return 1;
     }
 
-    /* Save binary path before we strip it down for the resources path */
-    char tacet_binary[PATH_MAX];
-    strlcpy(tacet_binary, real_self, sizeof(tacet_binary));
-
     /* real_self = .../Tacet.app/Contents/MacOS/tacet
      * Strip filename → MacOS dir, strip MacOS → Contents dir */
     char *slash = strrchr(real_self, '/');
@@ -75,13 +85,9 @@ int main(void) {
     snprintf(resources, sizeof(resources), "%s/Resources", real_self);
     snprintf(python,    sizeof(python),    "%s/.venv/bin/python3", resources);
 
-    /* Accessibility / CGEventPost:
-     * macOS initialises each process's EventTap trust state at launch from TCC.
-     * A grant given to an already-running process is not picked up — CGEventPost
-     * silently fails until the process restarts.  Fix: if we are not yet trusted,
-     * show the prompt, poll until the user grants it, then re-exec ourselves so
-     * the NEW process image starts with the grant already in TCC and EventTap
-     * initialises it as trusted from the very beginning. */
+    /* Trigger the Accessibility permission prompt branded as "Tacet".
+     * Non-blocking — we do NOT wait here. python3 forks immediately so the
+     * mic dialog fires quickly. Accessibility is checked at paste time. */
     if (!AXIsProcessTrusted()) {
         CFStringRef key = kAXTrustedCheckOptionPrompt;
         CFDictionaryRef opts = CFDictionaryCreate(
@@ -93,21 +99,6 @@ int main(void) {
         );
         AXIsProcessTrustedWithOptions(opts);
         CFRelease(opts);
-
-        /* Wait for user to enable in System Settings (600 × 100ms = 60s) */
-        for (int i = 0; i < 600; i++) {
-            if (AXIsProcessTrusted()) break;
-            usleep(100000);
-        }
-
-        /* Re-exec ourselves so the new process context is initialised as
-         * trusted — same binary, same path, but a fresh EventTap state. */
-        if (AXIsProcessTrusted()) {
-            char *restart_argv[] = { tacet_binary, NULL };
-            execv(tacet_binary, restart_argv);
-            /* execv only returns on failure — fall through and continue */
-            perror("[tacet] re-exec after accessibility grant");
-        }
     }
 
     /* Create the paste pipe.
