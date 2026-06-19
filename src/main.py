@@ -99,10 +99,12 @@ def main() -> None:
     )
 
     # ------------------------------------------------------------------ #
-    # 3. Warm up Whisper in background so first transcription is instant
+    # 3. Warm up Whisper and trigger mic permission dialog at startup
     # ------------------------------------------------------------------ #
     import threading
+    from .audio.capture import request_mic_permission
     threading.Thread(target=whisper_engine.warm_up, daemon=True).start()
+    threading.Thread(target=request_mic_permission, daemon=True).start()
 
     # ------------------------------------------------------------------ #
     # 4. Check permissions (log only — do not block startup with a dialog)
