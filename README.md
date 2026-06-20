@@ -10,7 +10,7 @@ Inspired by Wispr Flow. All processing runs on-device using Apple Silicon-optimi
 
 - Apple Silicon Mac (M1 or later)
 - macOS Ventura 13 or later
-- Xcode Command Line Tools (`xcode-select --install`)
+- Internet connection on first launch (downloads the ~240 MB Whisper model from HuggingFace, then cached)
 
 ## Install
 
@@ -22,10 +22,12 @@ Inspired by Wispr Flow. All processing runs on-device using Apple Silicon-optimi
 
 ### From source
 
+Requires Xcode Command Line Tools (`xcode-select --install`) and Python 3.14.
+
 ```bash
 git clone https://github.com/jqrv6p8nmv-dev/tacet.git
 cd tacet
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+python3.14 -m venv .venv && .venv/bin/pip install -r requirements.txt
 bash scripts/build_dmg.sh
 ```
 
