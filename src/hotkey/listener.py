@@ -1,17 +1,38 @@
 """
 Global hotkey listener.
 
-HotkeyListener uses AppKit.NSEvent.addGlobalMonitorForEventsMatchingMask_handler_
-(native macOS API) to avoid the pynput/ScriptMonitor crash on Ventura/Sonoma.
-FnHoldListener keeps pynput for Fn-key detection (there is no NSEvent keycode for Fn).
+When running inside Tacet.app (C launcher), hotkey detection is handled by the
+C binary via CGEventTap (requires only Accessibility, not Input Monitoring).
+The C launcher writes 'H' to a pipe (TACET_HOTKEY_FD) when the hotkey fires;
+a background thread here reads that pipe and calls on_activate.
+
+When running standalone (dev/test without the C launcher), falls back to
+NSEvent.addGlobalMonitorForEventsMatchingMask_handler_ (requires both
+Accessibility and Input Monitoring).
 """
+import fcntl
 import logging
+import os
 import threading
 from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
-# ── Native macOS key constants ────────────────────────────────────────────────
+# ── Hotkey pipe from C launcher ───────────────────────────────────────────────
+
+# When TACET_HOTKEY_FD is set the C launcher handles CGEventTap.
+# Set FD_CLOEXEC immediately so mlx multiprocessing workers don't inherit it.
+_HOTKEY_FD: Optional[int] = None
+_hotkey_fd_env = os.environ.get("TACET_HOTKEY_FD")
+if _hotkey_fd_env is not None:
+    try:
+        _fd = int(_hotkey_fd_env)
+        fcntl.fcntl(_fd, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
+        _HOTKEY_FD = _fd
+    except (ValueError, OSError):
+        pass
+
+# ── Native macOS key constants (used by NSEvent fallback only) ────────────────
 
 _NSKeyDownMask = 1 << 10  # NSEventMaskKeyDown
 _MOD_MASK = 0xFFFF0000    # device-independent modifier flags
@@ -78,18 +99,22 @@ def _parse_to_native(hotkey_str: str) -> tuple[Optional[int], int]:
 
 class HotkeyListener:
     """
-    Toggle-mode global hotkey listener using NSEvent (no pynput/ScriptMonitor).
+    Toggle-mode global hotkey listener.
 
-    Each press of the configured key combination calls `on_activate`.
-    The NSEvent monitor is registered on the AppKit main-thread run loop
-    (scheduled via NSOperationQueue.mainQueue) so it must be started after
-    rumps / NSApplication has begun running.
+    When TACET_HOTKEY_FD is set (running inside the C launcher), hotkey
+    detection is delegated to the C binary's CGEventTap, which writes 'H' to
+    the pipe. A background thread reads that pipe and calls on_activate.
+
+    When running standalone (no C launcher), falls back to NSEvent global
+    monitoring (requires Input Monitoring permission in addition to Accessibility).
     """
 
     def __init__(self, hotkey: str = "ctrl+shift+space", on_activate: Optional[Callable] = None):
         self._hotkey_str = _parse_hotkey(hotkey)
         self.on_activate = on_activate
         self._monitor = None
+        self._event_handler = None  # strong Python ref to prevent GC
+        self._pipe_thread: Optional[threading.Thread] = None
         self._running = False
         self._keycode, self._mod_flags = _parse_to_native(hotkey)
 
@@ -111,6 +136,43 @@ class HotkeyListener:
             return
         self._running = True
 
+        if _HOTKEY_FD is not None:
+            self._start_pipe_listener()
+        else:
+            self._start_nsevent_listener()
+
+    def _start_pipe_listener(self) -> None:
+        """
+        Read 'H' bytes from the C launcher's hotkey pipe.
+        The C launcher uses CGEventTap (Accessibility only — no Input Monitoring needed).
+        """
+        on_activate = self.on_activate
+        hotkey_str = self._hotkey_str
+        fd = _HOTKEY_FD
+
+        def _reader() -> None:
+            logger.info("Hotkey pipe listener started (C launcher CGEventTap, fd=%d)", fd)
+            try:
+                while True:
+                    data = os.read(fd, 1)
+                    if not data:
+                        logger.info("Hotkey pipe closed — C launcher exited")
+                        break
+                    if data == b"H":
+                        logger.info("Hotkey fired: %s", hotkey_str)
+                        if on_activate:
+                            threading.Thread(target=on_activate, daemon=True).start()
+            except OSError as e:
+                logger.debug("Hotkey pipe read error: %s", e)
+
+        self._pipe_thread = threading.Thread(target=_reader, name="hotkey-pipe", daemon=True)
+        self._pipe_thread.start()
+
+    def _start_nsevent_listener(self) -> None:
+        """
+        Fallback: NSEvent global monitor (standalone mode, no C launcher).
+        Requires Input Monitoring permission in addition to Accessibility.
+        """
         try:
             import AppKit
 
@@ -121,19 +183,29 @@ class HotkeyListener:
             def _create_monitor():
                 def _handler(event):
                     try:
+                        kc = event.keyCode()
+                        flags = event.modifierFlags() & _MOD_MASK
                         if event.isARepeat():
                             return
-                        flags = event.modifierFlags() & _MOD_MASK
-                        if event.keyCode() == keycode and (flags & mod_flags) == mod_flags:
+                        if kc == keycode and (flags & mod_flags) == mod_flags:
+                            logger.info("Hotkey matched — firing on_activate")
                             if on_activate:
                                 threading.Thread(target=on_activate, daemon=True).start()
                     except Exception:
-                        logger.debug("Error in NSEvent hotkey handler", exc_info=True)
+                        logger.error("Error in NSEvent hotkey handler", exc_info=True)
 
+                self._event_handler = _handler  # keep strong Python ref
+                mask = getattr(AppKit, "NSEventMaskKeyDown", _NSKeyDownMask)
                 self._monitor = AppKit.NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
-                    _NSKeyDownMask, _handler
+                    mask, self._event_handler
                 )
-                logger.info("NSEvent hotkey listener started: %s", self._hotkey_str)
+                if self._monitor is None:
+                    logger.error(
+                        "NSEvent monitor is None — Input Monitoring permission not granted. "
+                        "Grant Input Monitoring access in System Settings → Privacy & Security."
+                    )
+                else:
+                    logger.info("NSEvent hotkey listener started (standalone): %s", self._hotkey_str)
 
             AppKit.NSOperationQueue.mainQueue().addOperationWithBlock_(_create_monitor)
 
@@ -150,6 +222,7 @@ class HotkeyListener:
             except Exception:
                 logger.debug("Failed to remove NSEvent monitor", exc_info=True)
             self._monitor = None
+        self._event_handler = None
         logger.info("HotkeyListener stopped")
 
     def update_hotkey(self, new_hotkey: str, on_activate: Optional[Callable] = None) -> None:

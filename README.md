@@ -1,6 +1,6 @@
 # Tacet
 
-Free, local voice dictation for macOS. Press a hotkey, speak naturally, get clean text inserted into any app — no cloud, no subscription, nothing phoning home.
+Free, local voice dictation for macOS. Press a hotkey, speak naturally, get clean text inserted wherever your cursor is — no cloud, no subscription, nothing leaving your machine.
 
 Inspired by Wispr Flow. All processing runs on-device using Apple Silicon-optimized models.
 
@@ -8,109 +8,164 @@ Inspired by Wispr Flow. All processing runs on-device using Apple Silicon-optimi
 
 ## Requirements
 
-- Apple Silicon Mac (M1 / M2 / M3 / M4)
+- Apple Silicon Mac (M1 or later)
 - macOS Ventura 13 or later
-- [Homebrew](https://brew.sh) (the installer will set it up if missing)
+- Xcode Command Line Tools (`xcode-select --install`)
 
-## Install — DMG (recommended for most users)
+## Install
+
+### DMG (recommended)
 
 1. Download `Tacet-0.1.0.dmg` from [Releases](https://github.com/jqrv6p8nmv-dev/tacet/releases)
 2. Open the DMG and drag **Tacet.app** to `/Applications`
-3. **Right-click Tacet.app → Open → Open** (required once to bypass Gatekeeper — Tacet is not yet signed with an Apple Developer certificate)
+3. **Right-click Tacet.app → Open → Open** — required once to bypass Gatekeeper (Tacet is not yet signed with an Apple Developer certificate)
 
-## Install — from source (developers)
+### From source
 
 ```bash
 git clone https://github.com/jqrv6p8nmv-dev/tacet.git
 cd tacet
-bash scripts/install.sh
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+bash scripts/build_dmg.sh
 ```
 
-The installer handles everything: Python, virtual environment, dependencies, and the LaunchAgent that starts Tacet automatically on every login.
+Then open `dist/Tacet-0.1.0.dmg` and drag to `/Applications`.
 
-## Grant permissions (required)
+---
 
-Tacet needs two permissions to function. macOS will prompt for **Microphone** automatically on first launch. The other two require a one-time manual step:
+## First-time setup
 
-Open **System Settings → Privacy & Security** and enable `python3` under:
+Tacet needs two permissions. Follow this order exactly — the Accessibility step requires a restart to take effect.
 
-1. **Accessibility** — lets Tacet type text into other apps
-2. **Input Monitoring** — lets Tacet detect the global hotkey
+### Step 1 — Grant Accessibility (before first launch)
 
-For each: click `+`, press `Cmd+Shift+G` in the file picker, and paste:
+Open **System Settings → Privacy & Security → Accessibility**
+
+Click **+** and add `/Applications/Tacet.app`, then make sure the toggle is **on**.
+
+> **Why before launch?** macOS only applies Accessibility grants to processes started after the grant is recorded. If you launch first and grant later, quit and relaunch Tacet.
+
+### Step 2 — Launch Tacet
+
 ```
-/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python
+open /Applications/Tacet.app
 ```
 
-Then restart Tacet. These are one-time steps — macOS remembers them across reboots.
+A 🎙 icon appears in your menu bar.
+
+### Step 3 — Grant Microphone
+
+Press `Ctrl+Shift+Space`. macOS will ask for microphone access — click **Allow**.
+
+That's it. Dictation works immediately.
+
+### Optional: start at login
+
+Click the 🎙 menubar icon → **Launch at Login: OFF** to toggle it on.
+
+---
 
 ## Usage
 
-Tacet runs as a menubar app. Look for 🎙 in your menu bar.
+| Action | What happens |
+|--------|-------------|
+| `Ctrl+Shift+Space` | Start recording — icon turns 🔴 |
+| `Ctrl+Shift+Space` again, or stop talking for ~1.5s | Stop recording, transcribe, insert text |
 
-| Action | Result |
-|--------|--------|
-| Press `Ctrl+Shift+Space` | Start recording (icon turns 🔴) |
-| Press `Ctrl+Shift+Space` again | Stop and transcribe |
-| Stop talking for ~1.5s | Auto-stops and transcribes |
+A small overlay appears at the bottom of the screen showing recording / processing / done state.
 
-Transcribed text is inserted at the cursor in whatever app is focused.
+---
 
 ## Configuration
 
-User config lives at `~/.config/tacet/config.json`. All available options are in `config/default_config.json`.
-
-Key settings:
+Config lives at `~/.config/tacet/config.json` (created automatically on first launch from `config/default_config.json`).
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `hotkey.record` | `ctrl+shift+space` | Trigger key combo |
-| `transcription.model` | `mlx-community/whisper-tiny-mlx` | Whisper model size |
-| `processing.llm_cleanup` | `true` | AI text polish via Ollama |
-| `processing.ollama_model` | `llama3.2:3b` | Ollama model to use |
+| `hotkey.record` | `ctrl+shift+space` | Global trigger |
+| `transcription.model` | `mlx-community/whisper-small-mlx` | Whisper model — smaller = faster, larger = more accurate |
+| `processing.llm_cleanup` | `true` | Polish text via Ollama (requires Ollama installed) |
+| `processing.ollama_model` | `llama3.2:3b` | Ollama model for cleanup |
 | `audio.silence_duration` | `1.5` | Seconds of silence before auto-stop |
+| `clipboard_restore` | `true` | Restore clipboard after paste |
+
+### Whisper model options
+
+| Model | Speed | Accuracy |
+|-------|-------|----------|
+| `mlx-community/whisper-tiny-mlx` | ~0.1s | Good for clear speech |
+| `mlx-community/whisper-small-mlx` | ~0.3s | Better for accents, mumbling (default) |
+| `mlx-community/whisper-large-v3-mlx` | ~1–2s | Best accuracy |
+
+### LLM text cleanup (optional)
+
+With `llm_cleanup: true`, transcribed text is polished by a local Ollama model before insertion. Requires [Ollama](https://ollama.com) with a compatible model:
+
+```bash
+brew install ollama
+ollama pull llama3.2:3b
+```
+
+If Ollama isn't running or isn't installed, Tacet falls back to rule-based cleanup (filler removal, punctuation) without any error.
+
+---
 
 ## Performance
 
-On Apple Silicon with the default tiny model:
+Measured on Apple Silicon with the default whisper-small model:
 
 | Step | Time |
 |------|------|
-| Transcription | ~0.1–0.2s |
-| Total (hotkey → text inserted) | ~0.5–0.7s |
+| Silence detection | ~0.1s |
+| Transcription | ~0.3s |
+| Text insertion | ~0.15s |
+| **Total (stop talking → text appears)** | **~0.6s** |
 
-For better accuracy at the cost of speed, switch to `mlx-community/whisper-small-mlx` in config.
+---
 
 ## Privacy
 
 - Audio is processed **entirely on-device** — never sent anywhere
 - Audio buffers are discarded immediately after transcription
 - No accounts, no telemetry, no analytics
-- Ollama (if installed) runs fully offline after the initial model download
+- Ollama (if used) runs fully offline after initial model download
+
+---
 
 ## Tech stack
 
 | Component | Technology |
 |-----------|-----------|
-| Menubar UI | rumps |
-| Audio capture | sounddevice |
-| Transcription | mlx-whisper (Apple Silicon) |
-| Text cleanup | Ollama (local LLM, optional) |
-| Hotkey detection | AppKit NSEvent global monitor |
-| Text insertion | CoreGraphics CGEventPost |
-| Auto-start | macOS LaunchAgent |
+| Native launcher | Objective-C (Cocoa + Carbon) |
+| Global hotkey | Carbon `RegisterEventHotKey` — no TCC permission required |
+| Text insertion | CoreGraphics `CGEventPost` — requires Accessibility |
+| Menubar UI | Python + rumps |
+| Audio capture | sounddevice (16 kHz mono) |
+| Transcription | mlx-whisper (Apple Silicon optimized) |
+| Text cleanup | Ollama (optional, local LLM) |
+| Login item | `SMAppService` |
 
-## Uninstall
+The native launcher forks Python after initializing NSApplication so Carbon hotkey events are delivered without requiring Input Monitoring permission.
 
-Delete `/Applications/Tacet.app` and `~/.config/tacet/`.
-
-If you installed via the LaunchAgent path:
-```bash
-bash scripts/uninstall_launchagent.sh
-```
+---
 
 ## Logs
 
 ```bash
-tail -f ~/Library/Logs/Tacet/tacet-error.log
+# Real-time
+tail -f ~/Library/Logs/Tacet/tacet.log
+
+# Launcher (hotkey, paste)
+tail -f ~/Library/Logs/Tacet/launcher.log
+```
+
+---
+
+## Uninstall
+
+```bash
+# Remove the app and config
+rm -rf /Applications/Tacet.app ~/.config/tacet
+
+# Remove from Login Items first if enabled (via the menubar)
 ```

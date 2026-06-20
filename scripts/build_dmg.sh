@@ -73,6 +73,10 @@ cat > "$APP_DIR/Contents/Info.plist" << PLIST
     <key>LSUIElement</key>
     <true/>
 
+    <!-- Prevent multiple instances from launching -->
+    <key>LSMultipleInstancesProhibited</key>
+    <true/>
+
     <!-- macOS permission usage descriptions (shown in system prompts) -->
     <key>NSMicrophoneUsageDescription</key>
     <string>Tacet needs microphone access to capture your voice for transcription.</string>
@@ -86,12 +90,16 @@ PLIST
 # means macOS TCC attributes Accessibility/Input Monitoring prompts to "Tacet"
 # (from the bundle's Info.plist) rather than to python3 / Python.framework.
 info "Compiling native launcher..."
-clang -o "$APP_DIR/Contents/MacOS/tacet" \
-    "$REPO_DIR/launcher/tacet_launcher.c" \
-    -framework ApplicationServices \
-    -framework CoreFoundation \
+clang -fobjc-arc \
+    -o "$APP_DIR/Contents/MacOS/tacet" \
+    "$REPO_DIR/launcher/tacet_launcher.m" \
+    -framework Cocoa \
+    -framework Carbon \
     || error "clang failed — ensure Xcode Command Line Tools are installed (xcode-select --install)"
 chmod +x "$APP_DIR/Contents/MacOS/tacet"
+# Re-sign so the binary identifier becomes com.tacet.app (from CFBundleIdentifier).
+# TCC matches Accessibility grants by this identifier, not the filename.
+codesign --force --deep --sign - "$APP_DIR" 2>/dev/null || true
 
 # Copy Python source and default config
 info "Copying source files..."
@@ -103,6 +111,10 @@ info "Copying Python environment (this may take a moment)..."
 cp -rp "$VENV" "$APP_DIR/Contents/Resources/.venv"
 
 success "Bundle structure created"
+
+# Stamp with build time so stale installs are easy to identify
+date -u '+%Y-%m-%dT%H:%M:%SZ' > "$APP_DIR/Contents/Resources/BUILD_TIMESTAMP"
+info "Build timestamp: $(cat "$APP_DIR/Contents/Resources/BUILD_TIMESTAMP")"
 
 # ── Code signing ─────────────────────────────────────────────────────────────
 
