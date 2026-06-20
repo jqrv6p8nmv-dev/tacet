@@ -112,6 +112,28 @@ cp -rp "$VENV" "$APP_DIR/Contents/Resources/.venv"
 
 success "Bundle structure created"
 
+# Download Whisper model into the bundle so the app works offline on first launch.
+# Uses the venv's huggingface_hub (already installed as an mlx-whisper dependency).
+WHISPER_MODEL="mlx-community/whisper-small-mlx"
+WHISPER_MODEL_STEM="${WHISPER_MODEL##*/}"   # whisper-small-mlx
+MODEL_DEST="$APP_DIR/Contents/Resources/models/$WHISPER_MODEL_STEM"
+if [[ -d "$MODEL_DEST" ]] && [[ -n "$(ls -A "$MODEL_DEST" 2>/dev/null)" ]]; then
+    info "Whisper model already present — skipping download"
+else
+    info "Downloading Whisper model ($WHISPER_MODEL) into bundle..."
+    mkdir -p "$MODEL_DEST"
+    "$VENV/bin/python3" - <<PYEOF
+from huggingface_hub import snapshot_download
+snapshot_download(
+    repo_id="$WHISPER_MODEL",
+    local_dir="$MODEL_DEST",
+    local_dir_use_symlinks=False,
+    ignore_patterns=["*.gitattributes", ".gitattributes"],
+)
+PYEOF
+    success "Whisper model bundled ($WHISPER_MODEL_STEM)"
+fi
+
 # Stamp with build time so stale installs are easy to identify
 date -u '+%Y-%m-%dT%H:%M:%SZ' > "$APP_DIR/Contents/Resources/BUILD_TIMESTAMP"
 info "Build timestamp: $(cat "$APP_DIR/Contents/Resources/BUILD_TIMESTAMP")"

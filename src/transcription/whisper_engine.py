@@ -5,11 +5,29 @@ Supports mlx-whisper (primary, Apple Silicon optimized) with a fallback
 to openai-whisper for non-Apple-Silicon environments.
 """
 import logging
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_model_path(hf_repo: str) -> str:
+    """
+    Return a local path if the model is bundled inside the app, otherwise
+    return the HuggingFace repo name for on-demand download.
+
+    The C launcher sets cwd to Contents/Resources before execv, so
+    models/<stem>/ is resolvable relative to the working directory.
+    """
+    stem = hf_repo.split("/")[-1]          # mlx-community/whisper-small-mlx → whisper-small-mlx
+    bundled = Path.cwd() / "models" / stem
+    if bundled.is_dir() and any(bundled.iterdir()):
+        logger.info("Using bundled Whisper model: %s", bundled)
+        return str(bundled)
+    logger.info("Bundled model not found — will download from HuggingFace: %s", hf_repo)
+    return hf_repo
 
 
 class WhisperEngine:
@@ -91,7 +109,7 @@ class WhisperEngine:
 
         result = mlx_whisper.transcribe(
             audio,
-            path_or_hf_repo=self.model,
+            path_or_hf_repo=_resolve_model_path(self.model),
             language=self.language if self.language != "auto" else None,
             verbose=False,
         )

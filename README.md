@@ -10,7 +10,6 @@ Inspired by Wispr Flow. All processing runs on-device using Apple Silicon-optimi
 
 - Apple Silicon Mac (M1 or later)
 - macOS Ventura 13 or later
-- Internet connection on first launch (downloads the ~240 MB Whisper model from HuggingFace, then cached)
 
 ## Install
 
@@ -122,6 +121,16 @@ Measured on Apple Silicon with the default whisper-small model:
 | Transcription | ~0.3s |
 | Text insertion | ~0.15s |
 | **Total (stop talking → text appears)** | **~0.6s** |
+
+---
+
+## Transcription model
+
+Tacet uses **[Whisper](https://github.com/openai/whisper)**, an open-source speech recognition model created by OpenAI and released under the MIT license. Specifically it uses the [`whisper-small`](https://huggingface.co/mlx-community/whisper-small-mlx) variant, optimized for Apple Silicon by the [MLX Community](https://huggingface.co/mlx-community) and bundled directly inside the app.
+
+**No internet connection is required for transcription.** The model runs entirely on-device — your audio never leaves your machine.
+
+You can swap in a different model size by editing `~/.config/tacet/config.json` (`transcription.model`). Larger models are more accurate but slower; smaller models are faster but may struggle with accents or background noise. Any model from the [mlx-community Whisper collection](https://huggingface.co/collections/mlx-community/whisper-mlx-models) works — a one-time download is required when switching.
 
 ---
 
