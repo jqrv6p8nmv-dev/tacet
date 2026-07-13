@@ -6,6 +6,17 @@
 #
 # With Developer ID signing (optional):
 #   DEVELOPER_ID="Developer ID Application: Your Name (XXXXXXXXXX)" bash scripts/build_dmg.sh
+#
+# Signing identity matters for TCC: macOS keys Accessibility/Microphone grants
+# to the app's code identity. Ad-hoc signing (--sign -) produces a new identity
+# on every build, so grants silently stop matching after a rebuild ("toggle is
+# ON but paste doesn't work"). A persistent identity fixes this. Without a paid
+# Developer ID, create a free self-signed code-signing cert once:
+#   Keychain Access → Certificate Assistant → Create a Certificate…
+#   Name: "Tacet Dev Signing", Identity Type: Self-Signed Root,
+#   Certificate Type: Code Signing
+# (or generate via openssl and `security import` / `security add-trusted-cert`).
+# The script picks it up automatically when present.
 
 set -euo pipefail
 
@@ -97,9 +108,6 @@ clang -fobjc-arc \
     -framework Carbon \
     || error "clang failed — ensure Xcode Command Line Tools are installed (xcode-select --install)"
 chmod +x "$APP_DIR/Contents/MacOS/tacet"
-# Re-sign so the binary identifier becomes com.tacet.app (from CFBundleIdentifier).
-# TCC matches Accessibility grants by this identifier, not the filename.
-codesign --force --deep --sign - "$APP_DIR" 2>/dev/null || true
 
 # Copy Python source and default config
 info "Copying source files..."
@@ -140,6 +148,11 @@ info "Build timestamp: $(cat "$APP_DIR/Contents/Resources/BUILD_TIMESTAMP")"
 
 # ── Code signing ─────────────────────────────────────────────────────────────
 
+# Identity resolution (stable identity keeps TCC grants valid across rebuilds):
+#   1. $DEVELOPER_ID if set
+#   2. "Tacet Dev Signing" self-signed cert if present in the keychain
+#   3. Ad-hoc (grants will NOT survive the next rebuild)
+SELF_SIGN_ID="Tacet Dev Signing"
 if [[ -n "$DEVELOPER_ID" ]]; then
     info "Signing with Developer ID: $DEVELOPER_ID"
     codesign --force --deep --options runtime \
@@ -147,10 +160,19 @@ if [[ -n "$DEVELOPER_ID" ]]; then
         --sign "$DEVELOPER_ID" \
         "$APP_DIR"
     success "Signed with Developer ID (submit for notarization to remove Gatekeeper warning)"
+elif security find-identity -v -p codesigning 2>/dev/null | grep -q "$SELF_SIGN_ID"; then
+    info "Signing with self-signed identity: $SELF_SIGN_ID"
+    # No --options runtime: hardened-runtime library validation would reject the
+    # venv's unsigned-by-same-team .so files without notarization entitlements.
+    codesign --force --deep --sign "$SELF_SIGN_ID" "$APP_DIR"
+    success "Signed with $SELF_SIGN_ID — TCC grants persist across rebuilds"
 else
-    info "No DEVELOPER_ID — using ad-hoc signing"
+    info "No DEVELOPER_ID and no '$SELF_SIGN_ID' cert — using ad-hoc signing"
     codesign --force --deep --sign - "$APP_DIR"
-    success "Ad-hoc signed (recipients right-click → Open on first launch)"
+    echo "  [WARN]  Ad-hoc signature changes every build: Accessibility grants"
+    echo "  [WARN]  will NOT survive a rebuild (System Settings toggle stays ON"
+    echo "  [WARN]  but stops matching). Create the '$SELF_SIGN_ID' cert —"
+    echo "  [WARN]  see the header of this script."
 fi
 
 # ── Create DMG ───────────────────────────────────────────────────────────────
@@ -174,10 +196,10 @@ echo "  App: $APP_DIR"
 echo "  DMG: $DMG_PATH"
 echo ""
 if [[ -z "$DEVELOPER_ID" ]]; then
-echo "  Note: Ad-hoc signed. First-time install:"
+echo "  Note: Not notarized. First-time install:"
 echo "    1. Open DMG, drag Tacet to /Applications"
 echo "    2. Right-click Tacet.app → Open → Open (once only)"
-echo "    3. Grant Microphone, Accessibility, Input Monitoring when prompted"
+echo "    3. Grant Accessibility and Microphone when prompted — no relaunch needed"
 echo ""
 fi
 echo "  To add to Login Items: Tacet menu → Launch at Login"

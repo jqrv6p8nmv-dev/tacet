@@ -6,7 +6,9 @@ Tacet components into a single cohesive app.
 """
 import json
 import logging
+import subprocess
 import threading
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -15,12 +17,21 @@ import sys
 
 import rumps
 
+from ..insertion import paste
+
 logger = logging.getLogger(__name__)
 
 # Menubar icon states
 ICON_IDLE = "🎙"
 ICON_RECORDING = "🔴"
 ICON_PROCESSING = "⏳"
+
+GRANT_AX_ITEM = "Grant Accessibility…"
+ACCESSIBILITY_SETTINGS_URL = (
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+)
+# Minimum seconds between "grant Accessibility" notifications
+_AX_DENIED_NOTIFY_INTERVAL = 180
 
 CONFIG_DIR = Path("~/.config/tacet").expanduser()
 CONFIG_PATH = CONFIG_DIR / "config.json"
@@ -73,6 +84,8 @@ class TacetApp(rumps.App):
         self.config = _load_config()
         self._recording = False
         self._processing = False
+        self._ax_denied_last_notify = 0.0
+        self._ax_denied_opened_settings = False
 
         # Components wired in via setup()
         self._capture = None
@@ -89,7 +102,7 @@ class TacetApp(rumps.App):
             "Launch at Login: ON" if self._login_item_enabled()
             else "Launch at Login: OFF"
         )
-        self.menu = [
+        items = [
             rumps.MenuItem("Start Recording", callback=self._toggle_recording),
             rumps.separator,
             rumps.MenuItem(
@@ -101,6 +114,11 @@ class TacetApp(rumps.App):
             rumps.separator,
             rumps.MenuItem("About Tacet", callback=self._show_about),
         ]
+        # Shown until the launcher reports the Accessibility grant ('A' event);
+        # removed by on_ax_granted().
+        if not paste.is_ax_trusted():
+            items.insert(0, rumps.MenuItem(GRANT_AX_ITEM, callback=self._open_ax_settings))
+        self.menu = items
 
     # ------------------------------------------------------------------
     # Public API called from main.py
@@ -120,6 +138,60 @@ class TacetApp(rumps.App):
         self._pipeline = pipeline
         self._overlay = overlay
         self._hotkey_listener = hotkey_listener
+
+    # ------------------------------------------------------------------
+    # Accessibility events from the launcher pipe
+    # ------------------------------------------------------------------
+
+    def on_ax_granted(self) -> None:
+        """Launcher reported the Accessibility grant ('A') — paste is live."""
+        paste.set_ax_trusted()
+
+        def _update_menu():
+            if GRANT_AX_ITEM in self.menu:
+                del self.menu[GRANT_AX_ITEM]
+
+        self._on_main_thread(_update_menu)
+        self._notify(
+            "Accessibility granted",
+            "Dictation will now paste automatically.",
+        )
+
+    def on_ax_denied(self) -> None:
+        """Launcher refused a paste ('N') — Accessibility not granted yet."""
+        now = time.monotonic()
+        if now - self._ax_denied_last_notify < _AX_DENIED_NOTIFY_INTERVAL:
+            return
+        self._ax_denied_last_notify = now
+        self._notify(
+            "Accessibility needed",
+            "Your text is on the clipboard — press Cmd+V. "
+            "Enable Tacet in System Settings → Accessibility to paste automatically.",
+        )
+        if not self._ax_denied_opened_settings:
+            self._ax_denied_opened_settings = True
+            self._open_ax_settings(None)
+
+    def _open_ax_settings(self, _sender) -> None:
+        try:
+            subprocess.run(["open", ACCESSIBILITY_SETTINGS_URL], check=False)
+        except Exception:
+            logger.warning("Failed to open Accessibility settings", exc_info=True)
+
+    def _notify(self, title: str, message: str) -> None:
+        try:
+            rumps.notification("Tacet", title, message)
+        except Exception:
+            # Notifications need a proper bundle — dev mode logs instead
+            logger.info("Notification: %s — %s", title, message)
+
+    @staticmethod
+    def _on_main_thread(fn) -> None:
+        try:
+            import AppKit
+            AppKit.NSOperationQueue.mainQueue().addOperationWithBlock_(fn)
+        except ImportError:
+            fn()
 
     # ------------------------------------------------------------------
     # Recording workflow — public entry points

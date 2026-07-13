@@ -96,6 +96,8 @@ def main() -> None:
         on_activate=app.toggle_recording,   # used by combo/toggle mode
         on_start=app.start_recording,        # used by Fn hold mode
         on_stop=app.stop_recording,          # used by Fn hold mode
+        on_ax_granted=app.on_ax_granted,     # launcher 'A': Accessibility live
+        on_ax_denied=app.on_ax_denied,       # launcher 'N': paste refused
     )
 
     # Wire everything together
@@ -133,9 +135,9 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     from .insertion.paste import check_accessibility_permission
     if not check_accessibility_permission():
-        logger.warning(
-            "Accessibility not granted — text insertion will not work. "
-            "Grant Accessibility access in System Settings → Privacy & Security → Accessibility."
+        logger.info(
+            "Accessibility not granted yet — pastes are held until the grant "
+            "arrives (launcher polls and reports it; no relaunch needed)."
         )
 
     # ------------------------------------------------------------------ #

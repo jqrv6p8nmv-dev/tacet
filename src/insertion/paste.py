@@ -15,6 +15,7 @@ import ctypes.util
 import fcntl
 import logging
 import os
+import threading
 import time
 from typing import Optional
 
@@ -36,6 +37,37 @@ if _paste_fd_env is not None:
         _PASTE_FD = _fd
     except (ValueError, OSError):
         pass
+
+# Accessibility state, driven by the launcher's 'A' event (see hotkey pipe).
+# Until it arrives, pastes through the launcher would be silently dropped by
+# macOS, so we keep the text on the clipboard instead.
+_AX_TRUSTED = threading.Event()
+
+
+def set_ax_trusted() -> None:
+    """Called when the launcher reports the Accessibility grant ('A' byte)."""
+    _AX_TRUSTED.set()
+    logger.info("Accessibility granted — paste via launcher is live")
+
+
+def is_ax_trusted() -> bool:
+    """Whether simulated Cmd+V will actually be delivered."""
+    if _PASTE_FD is not None:
+        return _AX_TRUSTED.is_set()
+    return _python_ax_trusted()
+
+
+def _python_ax_trusted() -> bool:
+    """Direct AXIsProcessTrusted() check on this python process (dev mode)."""
+    try:
+        lib_path = ctypes.util.find_library("ApplicationServices")
+        if not lib_path:
+            return True
+        lib = ctypes.cdll.LoadLibrary(lib_path)
+        lib.AXIsProcessTrusted.restype = ctypes.c_bool
+        return bool(lib.AXIsProcessTrusted())
+    except Exception:
+        return True  # Can't determine — assume OK
 
 
 def insert_text(text: str, restore_clipboard: bool = True) -> bool:
@@ -72,7 +104,9 @@ def insert_text(text: str, restore_clipboard: bool = True) -> bool:
     time.sleep(0.05)  # let the clipboard settle before simulating paste
     success = _simulate_paste()
 
-    if restore_clipboard and original_clipboard is not None:
+    # On failure (e.g. Accessibility not yet granted) leave the dictated text
+    # on the clipboard so the user can Cmd+V it manually.
+    if success and restore_clipboard and original_clipboard is not None:
         # Small delay to ensure the paste completes before we swap the clipboard back
         time.sleep(_RESTORE_DELAY)
         try:
@@ -91,6 +125,11 @@ def _simulate_paste() -> bool:
     CGEventPost (requires Accessibility on python3 itself).
     """
     if _PASTE_FD is not None:
+        if not _AX_TRUSTED.is_set():
+            logger.warning(
+                "Accessibility not granted — skipping paste, text left on clipboard"
+            )
+            return False
         try:
             os.write(_PASTE_FD, b"P")
             logger.debug("Cmd+V dispatched to C launcher via paste pipe")
@@ -154,18 +193,7 @@ def _cgeventpost_paste() -> bool:
 def check_accessibility_permission() -> bool:
     """
     Check if Accessibility permission is available for text insertion.
-    Returns True if the C launcher pipe is active (it handles this),
-    or if python3 itself has been granted Accessibility access.
+    With the C launcher, this reflects the launcher's grant as reported over
+    the pipe ('A' event); standalone, it checks python3's own grant.
     """
-    if _PASTE_FD is not None:
-        return True  # C launcher holds the Accessibility grant and does CGEventPost
-
-    try:
-        lib_path = ctypes.util.find_library("ApplicationServices")
-        if not lib_path:
-            return True
-        lib = ctypes.cdll.LoadLibrary(lib_path)
-        lib.AXIsProcessTrusted.restype = ctypes.c_bool
-        return bool(lib.AXIsProcessTrusted())
-    except Exception:
-        return True  # Can't determine — assume OK
+    return is_ax_trusted()

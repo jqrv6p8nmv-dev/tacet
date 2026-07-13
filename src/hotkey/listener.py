@@ -109,9 +109,17 @@ class HotkeyListener:
     monitoring (requires Input Monitoring permission in addition to Accessibility).
     """
 
-    def __init__(self, hotkey: str = "ctrl+shift+space", on_activate: Optional[Callable] = None):
+    def __init__(
+        self,
+        hotkey: str = "ctrl+shift+space",
+        on_activate: Optional[Callable] = None,
+        on_ax_granted: Optional[Callable] = None,
+        on_ax_denied: Optional[Callable] = None,
+    ):
         self._hotkey_str = _parse_hotkey(hotkey)
         self.on_activate = on_activate
+        self.on_ax_granted = on_ax_granted
+        self.on_ax_denied = on_ax_denied
         self._monitor = None
         self._event_handler = None  # strong Python ref to prevent GC
         self._pipe_thread: Optional[threading.Thread] = None
@@ -143,15 +151,19 @@ class HotkeyListener:
 
     def _start_pipe_listener(self) -> None:
         """
-        Read 'H' bytes from the C launcher's hotkey pipe.
-        The C launcher uses CGEventTap (Accessibility only — no Input Monitoring needed).
+        Read event bytes from the C launcher's pipe:
+          'H' — hotkey fired
+          'A' — Accessibility granted (paste via launcher is live)
+          'N' — paste refused (Accessibility not granted)
         """
         on_activate = self.on_activate
+        on_ax_granted = self.on_ax_granted
+        on_ax_denied = self.on_ax_denied
         hotkey_str = self._hotkey_str
         fd = _HOTKEY_FD
 
         def _reader() -> None:
-            logger.info("Hotkey pipe listener started (C launcher CGEventTap, fd=%d)", fd)
+            logger.info("Hotkey pipe listener started (C launcher, fd=%d)", fd)
             try:
                 while True:
                     data = os.read(fd, 1)
@@ -162,6 +174,14 @@ class HotkeyListener:
                         logger.info("Hotkey fired: %s", hotkey_str)
                         if on_activate:
                             threading.Thread(target=on_activate, daemon=True).start()
+                    elif data == b"A":
+                        logger.info("Launcher reported Accessibility granted")
+                        if on_ax_granted:
+                            threading.Thread(target=on_ax_granted, daemon=True).start()
+                    elif data == b"N":
+                        logger.warning("Launcher refused paste — Accessibility not granted")
+                        if on_ax_denied:
+                            threading.Thread(target=on_ax_denied, daemon=True).start()
             except OSError as e:
                 logger.debug("Hotkey pipe read error: %s", e)
 
@@ -320,10 +340,17 @@ def create_listener(
     on_activate: Optional[Callable] = None,
     on_start: Optional[Callable] = None,
     on_stop: Optional[Callable] = None,
+    on_ax_granted: Optional[Callable] = None,
+    on_ax_denied: Optional[Callable] = None,
 ):
     if _is_fn_config(hotkey):
         logger.info("Using Fn hold-to-record mode")
         return FnHoldListener(on_press=on_start, on_release=on_stop)
     else:
         logger.info("Using toggle mode for hotkey: %s", hotkey)
-        return HotkeyListener(hotkey=hotkey, on_activate=on_activate)
+        return HotkeyListener(
+            hotkey=hotkey,
+            on_activate=on_activate,
+            on_ax_granted=on_ax_granted,
+            on_ax_denied=on_ax_denied,
+        )

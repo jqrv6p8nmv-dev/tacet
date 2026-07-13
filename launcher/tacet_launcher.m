@@ -14,7 +14,14 @@
  *
  * Two IPC channels with python3:
  *   TACET_PASTE_FD  — python3 writes 'P' → parent calls CGEventPost(Cmd+V)
- *   TACET_HOTKEY_FD — parent writes 'H' on hotkey → python3 fires on_activate
+ *   TACET_HOTKEY_FD — parent → python3 event bytes:
+ *     'H' hotkey pressed          → python fires on_activate
+ *     'A' Accessibility granted   → paste is live (sent at startup if already
+ *                                   trusted, or by the AX poll thread on flip)
+ *     'N' paste refused           → CGEventPost skipped because AX not trusted;
+ *                                   text stays on the clipboard for manual Cmd+V
+ *   Single-byte pipe writes are atomic, so the hotkey handler (main thread),
+ *   AX poll thread, and paste thread can all share the write fd safely.
  *
  * Hotkey: Carbon RegisterEventHotKey (ctrl+shift+space).
  *   Requires NO TCC permission (neither Accessibility nor Input Monitoring).
@@ -103,7 +110,11 @@ static void setup_carbon_hotkey(void) {
 
 static void do_paste(void) {
     if (!AXIsProcessTrusted()) {
-        log_msg("paste: AX not trusted — attempting CGEventPost anyway");
+        /* Posting would be silently dropped by macOS — tell python instead so
+         * the UI can point the user at System Settings. */
+        log_msg("paste: AX not trusted — sending 'N' to python, skipping CGEventPost");
+        if (g_hotkey_write_fd >= 0) write(g_hotkey_write_fd, "N", 1);
+        return;
     }
     CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
     if (!src) { log_msg("paste: CGEventSourceCreate NULL"); return; }
@@ -143,6 +154,27 @@ static void *paste_pump_thread(void *arg) {
         [NSApp postEvent:e atStart:YES];
     });
     return NULL;
+}
+
+/* ── AX grant poll thread ──────────────────────────────────────────────────── */
+
+/* Watches for the Accessibility grant arriving while we run (tccd applies it
+ * to a live process — no relaunch needed) and tells python with 'A' so the UI
+ * can confirm paste is ready. Exits after the first flip. */
+static void *ax_poll_thread(void *arg) {
+    (void)arg;
+    unsigned interval = 1, elapsed = 0;
+    log_msg("ax-poll: waiting for Accessibility grant");
+    for (;;) {
+        if (AXIsProcessTrusted()) {
+            log_msg("ax-poll: Accessibility granted — sending 'A' to python");
+            if (g_hotkey_write_fd >= 0) write(g_hotkey_write_fd, "A", 1);
+            return NULL;
+        }
+        if (elapsed >= 120) interval = 5;
+        sleep(interval);
+        elapsed += interval;
+    }
 }
 
 /* ── Entry point ───────────────────────────────────────────────────────────── */
@@ -233,6 +265,17 @@ int main(void) {
     if (pthread_create(&paste_tid, NULL, paste_pump_thread, &paste_read_fd) == 0)
         pthread_detach(paste_tid);
     log_msg("paste thread started");
+
+    /* Tell python whether paste is live. If not yet trusted, poll for the
+     * grant so the user can allow it mid-run without relaunching. */
+    if (AXIsProcessTrusted()) {
+        log_msg("AX trusted at startup — sending 'A' to python");
+        write(g_hotkey_write_fd, "A", 1);
+    } else {
+        pthread_t ax_tid;
+        if (pthread_create(&ax_tid, NULL, ax_poll_thread, NULL) == 0)
+            pthread_detach(ax_tid);
+    }
 
     /* Init NSApplication (parent only, after fork).
      * Required for GetApplicationEventTarget() to return a valid target. */

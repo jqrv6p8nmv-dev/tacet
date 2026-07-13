@@ -36,33 +36,20 @@ Then open `dist/Tacet-0.1.0.dmg` and drag to `/Applications`.
 
 ## First-time setup
 
-Tacet needs two permissions. Follow this order exactly — the Accessibility step requires a restart to take effect.
+Just launch the app — Tacet prompts for the two permissions it needs. No relaunch required.
 
-### Step 1 — Grant Accessibility (before first launch)
+1. **Launch Tacet** (a 🎙 icon appears in your menu bar). macOS shows an Accessibility prompt — click **Open System Settings** and turn **Tacet** on. Dictation pastes automatically as soon as the grant lands. (Also available anytime via the menubar → **Grant Accessibility…**)
+2. **Press `Ctrl+Shift+Space`** and click **Allow** on the microphone prompt.
 
-Open **System Settings → Privacy & Security → Accessibility**
-
-Click **+** and add `/Applications/Tacet.app`, then make sure the toggle is **on**.
-
-> **Why before launch?** macOS only applies Accessibility grants to processes started after the grant is recorded. If you launch first and grant later, quit and relaunch Tacet.
-
-### Step 2 — Launch Tacet
-
-```
-open /Applications/Tacet.app
-```
-
-A 🎙 icon appears in your menu bar.
-
-### Step 3 — Grant Microphone
-
-Press `Ctrl+Shift+Space`. macOS will ask for microphone access — click **Allow**.
-
-That's it. Dictation works immediately.
+That's it. If you dictate before granting Accessibility, your text is kept on the clipboard — just press `Cmd+V` — and Tacet reminds you where to enable the permission.
 
 ### Optional: start at login
 
 Click the 🎙 menubar icon → **Launch at Login: OFF** to toggle it on.
+
+### Troubleshooting
+
+**Accessibility toggle is ON but nothing pastes** — this happens after upgrading from an older build that was ad-hoc signed: the grant is keyed to the previous build's code identity. Open System Settings → Privacy & Security → Accessibility, remove Tacet with **−**, re-add it, and toggle it on. Current builds are signed with a stable identity, so this won't recur across updates.
 
 ---
 
