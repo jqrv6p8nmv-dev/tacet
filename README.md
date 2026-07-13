@@ -17,7 +17,9 @@ Inspired by Wispr Flow. All processing runs on-device using Apple Silicon-optimi
 
 1. Download `Tacet-0.1.0.dmg` from [Releases](https://github.com/jqrv6p8nmv-dev/tacet/releases)
 2. Open the DMG and drag **Tacet.app** to `/Applications`
-3. **Right-click Tacet.app → Open → Open** — required once to bypass Gatekeeper (Tacet is not yet signed with an Apple Developer certificate)
+3. Launch Tacet. macOS will block it ("Apple could not verify…") because Tacet is not notarized. Click **Done**, open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to the Tacet message. Required once only.
+
+   > On macOS 14 Sonoma and earlier you can instead right-click Tacet.app → **Open** → **Open**. macOS 15+ removed that shortcut — use Open Anyway.
 
 ### From source
 

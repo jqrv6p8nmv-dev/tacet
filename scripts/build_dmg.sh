@@ -198,7 +198,8 @@ echo ""
 if [[ -z "$DEVELOPER_ID" ]]; then
 echo "  Note: Not notarized. First-time install:"
 echo "    1. Open DMG, drag Tacet to /Applications"
-echo "    2. Right-click Tacet.app → Open → Open (once only)"
+echo "    2. Launch, then System Settings → Privacy & Security → Open Anyway"
+echo "       (macOS 15+ removed the right-click → Open bypass; once only)"
 echo "    3. Grant Accessibility and Microphone when prompted — no relaunch needed"
 echo ""
 fi
