@@ -16,8 +16,11 @@ Inspired by Wispr Flow. All processing runs on-device using Apple Silicon-optimi
 ### DMG (recommended)
 
 1. Download `Tacet-0.1.0.dmg` from [Releases](https://github.com/jqrv6p8nmv-dev/tacet/releases)
-2. Open the DMG and drag **Tacet.app** to `/Applications`
-3. Launch Tacet. macOS will block it ("Apple could not verify…") because Tacet is not notarized. Click **Done**, open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to the Tacet message. Required once only.
+2. Open the DMG and drag **Tacet.app** onto **Drag Tacet Here** (this shortcut just points at `/Applications`).
+
+   > Don't double-click Tacet.app from inside the DMG window — drag it into `/Applications` first. Tacet checks for this itself and will show a "Move to Applications" dialog instead of failing silently if you skip this step.
+3. If macOS won't let you open Tacet at all and doesn't offer an "Open Anyway" option: open **System Settings → Privacy & Security**, scroll to the **Security** section, and set **Allow applications downloaded from** to **App Store & Known Developers**. Most Macs already allow this by default — you'll only hit this if yours is set stricter.
+4. Launch Tacet from `/Applications`. macOS will block it the first time ("Apple could not verify…") because Tacet is not notarized. Click **Done**, then open **System Settings → Privacy & Security** again, scroll down, and click **Open Anyway** next to the message that specifically mentions Tacet. Required once only.
 
    > On macOS 14 Sonoma and earlier you can instead right-click Tacet.app → **Open** → **Open**. macOS 15+ removed that shortcut — use Open Anyway.
 
@@ -32,7 +35,7 @@ python3.14 -m venv .venv && .venv/bin/pip install -r requirements.txt
 bash scripts/build_dmg.sh
 ```
 
-Then open `dist/Tacet-0.1.0.dmg` and drag to `/Applications`.
+Then open `dist/Tacet-0.1.0.dmg` and follow steps 2–4 above.
 
 ---
 

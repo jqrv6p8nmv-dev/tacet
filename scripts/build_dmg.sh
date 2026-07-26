@@ -176,14 +176,83 @@ else
 fi
 
 # ── Create DMG ───────────────────────────────────────────────────────────────
+#
+# Ships as a drag-to-Applications installer: the mounted DMG shows Tacet.app
+# next to an /Applications shortcut so the natural action is dragging it in.
+# This matters beyond convenience — a copy double-clicked straight from the
+# mounted DMG (still quarantined) gets App Translocation'd by Gatekeeper to a
+# randomized read-only path, which breaks the app (see CLAUDE.md). Dragging
+# into /Applications via Finder is what stops that from happening.
 
-info "Creating DMG..."
+info "Staging DMG contents..."
+STAGING_DIR="$DIST_DIR/dmg-staging"
+DRAG_LABEL="Drag Tacet Here"
+rm -rf "$STAGING_DIR"
+mkdir -p "$STAGING_DIR"
+cp -R "$APP_DIR" "$STAGING_DIR/"
+ln -s /Applications "$STAGING_DIR/$DRAG_LABEL"
+
+info "Creating writable DMG..."
+TMP_DMG="$DIST_DIR/$APP_NAME-tmp.dmg"
+MOUNT_DIR="$DIST_DIR/mnt-$APP_NAME"
+rm -f "$TMP_DMG"
+APP_SIZE_MB="$(du -sm "$STAGING_DIR" | cut -f1)"
 hdiutil create \
     -volname "$APP_NAME" \
-    -srcfolder "$APP_DIR" \
+    -srcfolder "$STAGING_DIR" \
     -ov \
-    -format UDZO \
-    "$DMG_PATH"
+    -fs HFS+ \
+    -format UDRW \
+    -size "$((APP_SIZE_MB + 200))m" \
+    "$TMP_DMG"
+
+info "Configuring Finder layout (drag-to-Applications)..."
+rm -rf "$MOUNT_DIR"; mkdir -p "$MOUNT_DIR"
+hdiutil attach "$TMP_DMG" -mountpoint "$MOUNT_DIR" -nobrowse -quiet
+
+# hdiutil attach can return before Finder's own volume list catches up, which
+# made the layout script below fail intermittently ("Can't get disk 'Tacet'").
+# Wait for Finder to actually see the volume before scripting it.
+FINDER_SEES_DISK=false
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if [[ "$(osascript -e "tell application \"Finder\" to exists disk \"$APP_NAME\"" 2>/dev/null)" == "true" ]]; then
+        FINDER_SEES_DISK=true
+        break
+    fi
+    sleep 0.5
+done
+[[ "$FINDER_SEES_DISK" == "true" ]] || echo "  [WARN]  Finder never saw the mounted disk — skipping layout"
+
+if [[ "$FINDER_SEES_DISK" == "true" ]]; then
+osascript <<APPLESCRIPT || echo "  [WARN]  Finder layout script failed — DMG will still work, just unstyled"
+tell application "Finder"
+    tell disk "$APP_NAME"
+        open
+        set current view of container window to icon view
+        set toolbar visible of container window to false
+        set statusbar visible of container window to false
+        set the bounds of container window to {200, 120, 760, 480}
+        set theViewOptions to the icon view options of container window
+        set arrangement of theViewOptions to not arranged
+        set icon size of theViewOptions to 96
+        set position of item "$APP_NAME.app" of container window to {140, 180}
+        set position of item "$DRAG_LABEL" of container window to {420, 180}
+        update without registering applications
+        delay 1
+        close
+    end tell
+end tell
+APPLESCRIPT
+fi
+sync
+hdiutil detach "$MOUNT_DIR" -quiet || hdiutil detach "$MOUNT_DIR" -force -quiet
+rmdir "$MOUNT_DIR" 2>/dev/null || true
+
+info "Converting to compressed, read-only DMG..."
+rm -f "$DMG_PATH"
+hdiutil convert "$TMP_DMG" -format UDZO -ov -o "$DMG_PATH"
+rm -f "$TMP_DMG"
+rm -rf "$STAGING_DIR"
 
 success "DMG created: $DMG_PATH"
 

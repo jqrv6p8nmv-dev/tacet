@@ -177,6 +177,22 @@ static void *ax_poll_thread(void *arg) {
     }
 }
 
+/* ── Fatal startup failure UI ──────────────────────────────────────────────
+ * Early path-resolution failures used to just log_msg() and exit(1), which
+ * is invisible to a first-time user who has no reason to go looking in
+ * ~/Library/Logs/Tacet. Show something instead of dying silently. */
+static int fail_with_alert(const char *reason, NSString *info) {
+    log_msg(reason);
+    [NSApplication sharedApplication];
+    [NSApp activateIgnoringOtherApps:YES];
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert setMessageText:@"Tacet Failed to Start"];
+    [alert setInformativeText:info];
+    [alert addButtonWithTitle:@"Quit"];
+    [alert runModal];
+    return 1;
+}
+
 /* ── Entry point ───────────────────────────────────────────────────────────── */
 
 int main(void) {
@@ -191,14 +207,49 @@ int main(void) {
     log_msg(tmp);
 
     /* Resolve own path → Contents dir */
+    NSString *pathFailInfo = @"Tacet couldn't resolve its own install path. "
+        @"Try reinstalling from a fresh download.";
     char self[PATH_MAX]; uint32_t sz = sizeof(self);
-    if (_NSGetExecutablePath(self, &sz)) { log_msg("ERROR: _NSGetExecutablePath"); return 1; }
+    if (_NSGetExecutablePath(self, &sz))
+        return fail_with_alert("ERROR: _NSGetExecutablePath", pathFailInfo);
     char real_self[PATH_MAX];
-    if (!realpath(self, real_self)) { log_msg("ERROR: realpath"); return 1; }
-    char *sl = strrchr(real_self, '/'); if (!sl) { log_msg("ERROR: bad path"); return 1; }
+    if (!realpath(self, real_self))
+        return fail_with_alert("ERROR: realpath", pathFailInfo);
+    char *sl = strrchr(real_self, '/'); if (!sl) return fail_with_alert("ERROR: bad path", pathFailInfo);
     *sl = '\0';
-    sl = strrchr(real_self, '/'); if (!sl) { log_msg("ERROR: bad path"); return 1; }
+    sl = strrchr(real_self, '/'); if (!sl) return fail_with_alert("ERROR: bad path", pathFailInfo);
     *sl = '\0';
+
+    /* Refuse to run from anywhere but /Applications. A quarantined copy
+     * launched straight off a mounted DMG (instead of dragged in first) gets
+     * App Translocation'd by Gatekeeper to a randomized read-only path —
+     * which breaks the path resolution above/below in ways that fail
+     * silently (no log, no python child, no visible error). Catch it here
+     * with a real dialog instead of dying invisibly. */
+    char bundle_dir[PATH_MAX];
+    snprintf(bundle_dir, sizeof(bundle_dir), "%s", real_self);
+    char *contents_sep = strrchr(bundle_dir, '/');
+    if (contents_sep) *contents_sep = '\0';   /* .../Tacet.app/Contents -> .../Tacet.app */
+
+    int translocated     = strstr(real_self, "/AppTranslocation/") != NULL;
+    int not_in_applications = strncmp(bundle_dir, "/Applications/", 14) != 0;
+
+    if (translocated || not_in_applications) {
+        snprintf(tmp, sizeof(tmp), "refusing to run from %s (translocated=%d) — showing move dialog",
+                 bundle_dir, translocated);
+        log_msg(tmp);
+
+        [NSApplication sharedApplication];
+        [NSApp activateIgnoringOtherApps:YES];
+        NSAlert *alert = [[NSAlert alloc] init];
+        [alert setMessageText:@"Move Tacet to the Applications Folder"];
+        [alert setInformativeText:@"Tacet needs to run from /Applications to work correctly. "
+            @"Quit this copy, drag Tacet.app into your Applications folder in Finder, "
+            @"then open it from there."];
+        [alert addButtonWithTitle:@"Quit"];
+        [alert runModal];
+        return 0;
+    }
 
     char resources[PATH_MAX], python[PATH_MAX];
     snprintf(resources, sizeof(resources), "%s/Resources",         real_self);

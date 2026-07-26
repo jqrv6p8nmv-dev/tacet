@@ -94,3 +94,17 @@ tail -f ~/Library/Logs/Tacet/tacet-error.log   # python stderr
 - [x] Mid-run Accessibility grant flow verified live (grant landed at 08:24, pastes worked immediately)
 - [x] Launch at Login via SMAppService
 - [ ] Pending: verify auto-start + full flow after a machine restart
+
+## Known Issue — Release Blocker (found 2026-07-26)
+**Fresh install can silently fail to start under macOS App Translocation.** If `Tacet.app` still carries the `com.apple.quarantine` xattr when first launched (e.g. double-clicked straight off the mounted DMG instead of being dragged to `/Applications` first, or copied in some other way that doesn't clear quarantine), Gatekeeper runs it from a randomized read-only path under
+`/private/var/folders/.../AppTranslocation/<uuid>/d/Tacet.app` instead of `/Applications/Tacet.app`. Under that path, `Contents/MacOS/tacet` either:
+- errors out immediately at the `_NSGetExecutablePath`/`realpath` resolution ([launcher/tacet_launcher.m:194-207](launcher/tacet_launcher.m#L194-L207)), logging `ERROR: realpath` and exiting, or
+- starts but never forks/execs the Python child (no `tacet.log`, no menubar, hotkey/dictation dead) — worse, it fails silently since `log_msg()` calls stop appearing entirely once translocated.
+
+Repro: launch a quarantined copy of `Tacet.app` from anywhere other than `/Applications` (or straight from the mounted DMG) — `xattr -p com.apple.quarantine Tacet.app` will show the flag; `ps` on the running process will show an `AppTranslocation` path instead of `/Applications`.
+
+Confirmed fix for an already-broken instance: `kill` the stray process, ensure `/Applications/Tacet.app` has no quarantine xattr (`xattr -cr /Applications/Tacet.app`), then relaunch from `/Applications` — launcher + Python child + full record→transcribe→paste pipeline all come up clean.
+
+**Fixed (2026-07-26):** both remediations landed.
+- `scripts/build_dmg.sh` now ships a drag-to-Applications DMG — stages `Tacet.app` next to an `Applications` symlink, opens a configured Finder icon-view window (falls back gracefully to an unstyled but functional DMG if Finder Automation permission isn't granted to the build shell).
+- `launcher/tacet_launcher.m` now refuses to run from anywhere but `/Applications` (checks for `/AppTranslocation/` in its resolved path, or a bundle dir not under `/Applications/`) and shows a "Move Tacet to the Applications Folder" alert + quits, instead of silently dying. The earlier hard-failure points (`_NSGetExecutablePath`, `realpath`, bad path) now show a generic "Tacet Failed to Start" alert too, for the same reason — a first-time user has no log to check.
