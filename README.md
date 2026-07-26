@@ -15,7 +15,7 @@ Inspired by Wispr Flow. All processing runs on-device using Apple Silicon-optimi
 
 ### DMG (recommended)
 
-1. Download `Tacet-0.1.0.dmg` from [Releases](https://github.com/jqrv6p8nmv-dev/tacet/releases)
+1. Download `Tacet-0.1.1.dmg` from [Releases](https://github.com/jqrv6p8nmv-dev/tacet/releases)
 2. Open the DMG and drag **Tacet.app** onto **Drag Tacet Here** (this shortcut just points at `/Applications`).
 
    > Don't double-click Tacet.app from inside the DMG window — drag it into `/Applications` first. Tacet checks for this itself and will show a "Move to Applications" dialog instead of failing silently if you skip this step.
@@ -35,7 +35,7 @@ python3.14 -m venv .venv && .venv/bin/pip install -r requirements.txt
 bash scripts/build_dmg.sh
 ```
 
-Then open `dist/Tacet-0.1.0.dmg` and follow steps 2–4 above.
+Then open `dist/Tacet-0.1.1.dmg` and follow steps 2–4 above.
 
 ---
 
